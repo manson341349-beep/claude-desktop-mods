@@ -6,52 +6,10 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
-    version: '1.5.6',
+    version: '1.5.7',
     notes: {
-      zh: ['点「压缩上下文」胶囊也能压缩了（之前只能点 Clawd）：点胶囊或 Clawd 一下，3 秒内再点就压缩'],
-      en: ['The Compact pill is clickable too (before only Clawd was): click it or Clawd once, again within 3 s to compact'],
-    },
-  },
-  {
-    version: '1.5.5',
-    notes: {
-      zh: ['修复：上下文到 60% 时信息栏被挤成没有副标题的窄排法；「点 Clawd」提示现在按剩余空间选长短'],
-      en: ['Fix: at 60% context the band dropped to its narrow layout; the "Click Clawd" hint now picks a length that fits'],
-    },
-  },
-  {
-    version: '1.5.4',
-    notes: {
-      zh: ['一键压缩改成点 Clawd：上下文到 60% 时 Clawd 身后亮起光晕、上下文那块提示「点 Clawd 压缩」，点 Clawd 两下就压缩'],
-      en: ['Compact is now on Clawd: at 60% context he glows and the Context block says "Click Clawd to compact"; click him twice'],
-    },
-  },
-  {
-    version: '1.5.3',
-    notes: {
-      zh: ['修复：展开时点「压缩上下文」胶囊没反应（点击区域中间有缝）'],
-      en: ['Fix: clicking the Compact pill in the expanded band did nothing (gaps in the click area)'],
-    },
-  },
-  {
-    version: '1.5.2',
-    notes: {
-      zh: ['修复：窄窗口时点圆环右上角的橙点压缩不了；现在点上下文那一块的任何位置都可以'],
-      en: ['Fix: in narrow windows the orange dot on the Context ring could not be clicked; the whole Context block now responds'],
-    },
-  },
-  {
-    version: '1.5.1',
-    notes: {
-      zh: ['压缩按钮挪进上下文那一块：副标题换成橙色「压缩上下文」，点这一块两下就压缩；收起时是上下文百分比旁的橙色 ↓'],
-      en: ['Compact moved into the Context block: an orange "Compact" pill replaces its subtitle; click the block twice to compact. Collapsed, it is an orange ↓ beside the context %'],
-    },
-  },
-  {
-    version: '1.5.0',
-    notes: {
-      zh: ['一键压缩上下文：上下文到 60% 时 ▼ 旁边出现「压缩」，点两下就压缩（和 /compact 一样），Claude 干活时不显示'],
-      en: ['One-click compact: at 60% context a Compact button appears next to ▼; click it twice to compact (same as /compact). Hidden while Claude works'],
+      zh: ['移除「一键压缩」：桌面 App 里插件暂时不能触发压缩（官方接口限制），压缩请直接输入 /compact'],
+      en: ['Removed one-click compact: plugins cannot trigger compaction in the desktop app yet (an engine limit). Use /compact'],
     },
   },
   {

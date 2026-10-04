@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
 import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
-import { bandAlt, bandSvg, H, H_MINI, type Hit, type PetView } from './band'
+import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
 import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T } from './i18n'
@@ -23,11 +23,6 @@ const petAtom = atom({ plugin: 'usage-pet', key: 'pet' } as const, NEW_PET as Pe
 const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], output: 0, earned: [] }
 const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
 const PET_KEY = 'pet'
-// 一键压缩：上下文 ≥ COMPACT_AT% 才在 ▼ 旁边出现；第一下变成「确认压缩？」，CONFIRM_MS 内再点才真的压缩
-const compactAtom = atom({ plugin: 'usage-pet', key: 'compact' } as const, 'idle' as 'idle' | 'armed' | 'running')
-const COMPACT_AT = 60
-const CONFIRM_MS = 3000
-let armToken = 0
 const CARD_PANE = 'clawd-card'
 // 改文件的工具：战报里「改动文件」按它们的路径去重计数
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
@@ -224,36 +219,6 @@ async function exportCard($: EngineInterface, svg: string): Promise<{ path: stri
   }
 }
 
-// 点压缩按钮：第一下只是「上膛」，3 秒内再点才执行；执行就是 /compact 那一套（轮到 Claude 干活时引擎会拒绝）
-async function pressCompact($: EngineInterface, lang: Lang) {
-  const state = await read($, compactAtom)
-  if (state === 'running') {
-    return
-  }
-  if (state === 'idle') {
-    const token = ++armToken
-    await update($, compactAtom, () => 'armed')
-    $.clock.after(CONFIRM_MS, () => {
-      if (token === armToken) {
-        void update($, compactAtom, s => (s === 'armed' ? 'idle' : s))
-      }
-    })
-
-    return
-  }
-  armToken++
-  await update($, compactAtom, () => 'running')
-  const t = T[lang]
-  try {
-    const res = (await $.session.compact()) as { skip?: string } | undefined
-    $.ui.toast(res && typeof res.skip === 'string' ? t.compactSkipped(res.skip) : t.compacted)
-  } catch (err) {
-    $.ui.toast(t.compactFailed(String(err).slice(0, 120)))
-  } finally {
-    await update($, compactAtom, () => 'idle')
-  }
-}
-
 export const register: Register = (on, options) => {
   const choice = (options?.language ?? 'auto') as LangChoice
 
@@ -411,13 +376,7 @@ export const register: Register = (on, options) => {
       const { Box, Button, Svg } = $.ui.resolve(e)
       // 不设大下限：以前最少 560px，窗口窄时信息栏比可用宽度还宽，按钮就被挤到下一行。
       // 窄了由 bandSvg 自己逐级收（去副标题 → 只剩圆环），按钮始终在同一行右侧
-      // 上下文快满（≥60%）且 Claude 没在干活时，上下文那块的副标题换成橙色胶囊「压缩上下文」（收起时是 ↓），Clawd 身后光晕呼吸。
-      // 信息栏是一张图，图里收不到点击，所以在胶囊所在的上下文那块、和 Clawd 身上各叠一层透明按钮接点击。
-      // 1.5.1–1.5.3 只有最上面一行点得到：叠层用 top+bottom 撑高度没撑开；1.5.4 起改用 height 100%
-      const compact = await read($, compactAtom)
-      const showCompact = compact === 'running' || ((bars.to?.contextPercent ?? 0) >= COMPACT_AT && !e.props.isWorking)
       const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
-      const hit: Hit = { x: 0, w: 0 }
       const pinned = await read($, pinnedAtom)
       const isMini = !pinned && !(await read($, expandedAtom))
       // 收起时按「展开」= 一直展开；展开时按「收起」= 立刻收起并回到自动模式
@@ -429,44 +388,15 @@ export const register: Register = (on, options) => {
         await update($, expandedAtom, () => nowMini)
       }
 
-      const source = bandSvg(bars, e.props.isWorking, width, isMini, lang, pet, showCompact ? compact : undefined, hit)
-
       return (
         <Box flexDirection="row" alignItems="center" flexWrap="nowrap">
-          <Box position="relative" flexDirection="row">
-            <Svg
-              source={source}
-              alt={bandAlt(bars.to, e.props.isWorking, lang)}
-              width={width}
-              height={isMini ? H_MINI : H}
-              isInteractive
-            />
-            {showCompact
-              ? [
-                  { id: 'clawd', at: hit },
-                  { id: 'ctx', at: hit.ctx },
-                ].map(({ id, at }) =>
-                  at ? (
-                    <Box
-                      key={`hit-${id}`}
-                      position="absolute"
-                      left={Math.floor(at.x / PX_PER_COLUMN)}
-                      width={Math.max(1, Math.ceil(at.w / PX_PER_COLUMN))}
-                      top={0}
-                      height="100%"
-                      flexDirection="column"
-                      justifyContent={isMini ? 'center' : 'flex-start'}
-                      alignItems="stretch"
-                    >
-                      {/* 透明按钮只有一行高：展开时从上往下紧挨着叠四个，把整块盖满 */}
-                      {(isMini ? [''] : ['', '-2', '-3', '-4']).map(n => (
-                        <Button key={`compact${id === 'clawd' ? '' : '-ctx'}${n}`} label=" " plain onPress={() => void pressCompact($, lang)} />
-                      ))}
-                    </Box>
-                  ) : null,
-                )
-              : null}
-          </Box>
+          <Svg
+            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
+            alt={bandAlt(bars.to, e.props.isWorking, lang)}
+            width={width}
+            height={isMini ? H_MINI : H}
+            isInteractive
+          />
           <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
         </Box>
       )

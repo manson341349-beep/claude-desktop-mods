@@ -47,15 +47,6 @@ export const T = {
     whatsNew: (v: string) => `🦀 Clawd 信息栏 ${v}：`,
     pinned: 'Clawd 信息栏：一直展开',
     autoCollapse: 'Clawd 信息栏：自动收起（数据刷新时展开 5 秒）',
-    // 一键压缩上下文（上下文 ≥60% 才出现，点两下才执行）
-    compact: '压缩上下文',
-    compactShort: '压缩',
-    compactConfirm: '再点一次压缩',
-    compactConfirmShort: '再点一次',
-    compacting: '压缩中…',
-    compacted: 'Clawd：上下文已压缩',
-    compactSkipped: (why: string) => `Clawd：压缩没有执行（${why}）`,
-    compactFailed: (why: string) => `Clawd：压缩失败（${why}）`,
     // 养成
     gear: { sprout: '头顶小芽', bowtie: '红领结', cap: '棒球帽', crown: '小皇冠' },
     achievement: {
@@ -112,14 +103,6 @@ export const T = {
     whatsNew: (v: string) => `🦀 Clawd band ${v}: `,
     pinned: 'Clawd band: always expanded',
     autoCollapse: 'Clawd band: auto-collapse (expands for 5 s when usage refreshes)',
-    compact: 'Compact context',
-    compactShort: 'Compact',
-    compactConfirm: 'Click again',
-    compactConfirmShort: 'Again',
-    compacting: 'Compacting…',
-    compacted: 'Clawd: context compacted',
-    compactSkipped: (why: string) => `Clawd: compaction skipped (${why})`,
-    compactFailed: (why: string) => `Clawd: compaction failed (${why})`,
     gear: { sprout: 'a sprout', bowtie: 'a red bow tie', cap: 'a baseball cap', crown: 'a tiny crown' },
     achievement: {
       'cache-99': ['Cache master', '99% cache hit in one turn'],

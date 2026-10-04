@@ -95,8 +95,6 @@ function textWidth(text: string, size: number): number {
 
 // 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题、副标题、悬停时换上的详情三行里最长的那行
 // （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
-const pillWidth = (text: string) => textWidth(text, 10.5) + 16
-// 胶囊不参与排版：1.5.4 让「Click Clawd to compact」参与算宽，宽窗口也被挤成没有副标题的窄排法
 const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
 
 // 窗口窄的时候逐级收：full（圆环 + 标题 + 副标题）→ compact（圆环 + 标题）→ stacked（圆环上移、小字标题放在圆环下面）
@@ -131,9 +129,6 @@ type Gauge = {
   sub: string
   detail: string
   title: string
-  // 一键压缩：上下文那块的副标题换成橙色胶囊，候选文字从长到短，放得下哪个用哪个
-  pills?: string[]
-  pillArmed?: boolean
   from?: number
   to?: number
 }
@@ -182,8 +177,6 @@ function odometer(g: Gauge, i: number, cx: number, cy: number, isChanged: boolea
 }
 
 function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[], layout: Layout = 'full'): string {
-  // 胶囊：在这一块现有的文字区里，挑放得下的最长那条
-  const pill = layout === 'full' ? g.pills?.find(text => pillWidth(text) <= w - (2 * R + 4 + 10)) : undefined
   // stacked：圆环在这一块里居中、往上挪，给下面的小字标题让位
   const cx = layout === 'stacked' ? x + w / 2 : x + R + 2
   const cy = layout === 'stacked' ? 25 : 32
@@ -224,20 +217,14 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
     `</g>` +
     (layout === 'full'
       ? `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
-        (pill
-          ? `<rect x="${cx + R + 10}" y="33" width="${pillWidth(pill).toFixed(1)}" height="16" rx="8" class="pill${g.pillArmed ? ' armed' : ''}"/>` +
-            `<text x="${cx + R + 18}" y="44.5" class="ptxt">${pill}</text>`
-          : `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` + `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`)
+        `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` +
+        `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`
       : layout === 'compact'
         ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>`
         : layout === 'stacked'
           ? `<text x="${cx}" y="56" text-anchor="middle" class="lab stk">${g.label}</text>`
           : '') +
     chip +
-    // 放不下胶囊（窄排法，或这一块的文字区太窄）：圆环右上角一个橙色小圆点 + ↓ 提示可以压缩
-    (g.pills && !pill
-      ? `<circle cx="${cx + R - 1}" cy="${cy - R + 2}" r="6" class="pdot${g.pillArmed ? ' armed' : ''}"/><text x="${cx + R - 1}" y="${cy - R + 5}" text-anchor="middle" class="pdotT">↓</text>`
-      : '') +
     `</g>`
   )
 }
@@ -328,7 +315,7 @@ export function clawdBody(isStressed: boolean, level = 1): string {
 }
 
 // mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
-function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView, compact?: CompactState): string {
+function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView): string {
   const body = clawdBody(isStressed, pet?.level)
   // 头上戴了东西，干活时的小火花挪到头的左边，不跟帽子打架
   const sparkAt = gearOf(pet?.level ?? 1).head ? '-1.2 -1.2' : '8 -2.6'
@@ -383,7 +370,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
   const hopClass = didChange ? 'hop once' : isWorking ? 'hop' : 'hop idle'
 
   return (
-    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}${compact ? ` compactable ${compact}` : ''}" ` +
+    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}" ` +
     `transform="translate(${mini ? MINI_X : CLAWD_X} ${mini ? MINI_Y : CLAWD_Y}) scale(${mini ? MINI_U : U})">` +
     (pet ? `<title>${pet.title}</title>` : '') +
     `<circle cx="8" cy="5" r="9.5" fill="url(#aura)" class="aura"/>` +
@@ -418,8 +405,6 @@ const STYLE =
   `.g{transform-box:fill-box}.g.enter{animation:rise .55s ${OUT} both}` +
   `.chip{font-size:9.5px;font-weight:700;opacity:0;animation:chip 1.8s ${OUT} .25s both}` +
   `.chip.ok{fill:#F3B18F}.chip.warn{fill:#FFCB7A}.chip.danger{fill:#FF8F7A}` +
-  `.pill{fill:#D97757;fill-opacity:.2;stroke:#D97757;stroke-opacity:.45}.pill.armed{fill-opacity:.45;stroke-opacity:.9}.ptxt{font-size:10.5px;font-weight:600;fill:#F3A584}` +
-  `.pdot{fill:#D97757}.pdot.armed{fill:#F07A55}.pdotT{font-size:9px;font-weight:700;fill:#fff}.mpill{font-size:11.5px;font-weight:700;fill:#E98D6E}` +
   `@media (hover:hover){.g:hover .ring{transform:scale(1.09)}.g:hover .sub{opacity:0;filter:blur(2px)}.g:hover .sub2{opacity:1;filter:blur(0)}}` +
   // Clawd
   `.clawd *{transform-box:fill-box}` +
@@ -448,9 +433,6 @@ const STYLE =
   `.glyph{font-size:2.3px;font-weight:700;fill:#F0EEE6;opacity:0;animation:float 2.4s ${OUT} infinite}` +
   `.spark-spin{transform-origin:center;animation:spin 2.2s linear infinite}.spark-pulse{transform-origin:center;animation:pulse 1.1s ease-in-out infinite}` +
   `.aura{opacity:0;transform-origin:center}.working .aura{animation:aura 2.4s ease-in-out infinite}` +
-  // 可以点 Clawd 压缩时，身后的光晕慢慢呼吸；点了一下（等第二下）光晕变亮变快
-  `.compactable .aura{animation:aura 2.4s ease-in-out infinite}.compactable.armed .aura{animation:armed .7s ease-in-out infinite}` +
-  `@keyframes armed{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.9;transform:scale(1.12)}}` +
   `.stressed .tremble{animation:tremble .16s linear infinite}.sweat{animation:drip 1.5s ease-in infinite}` +
   `.heart{opacity:0;transform-origin:center}` +
   `@media (hover:hover){.clawd:hover .hop{animation:bounce .55s cubic-bezier(.3,.7,.4,1) infinite}` +
@@ -491,7 +473,7 @@ const STYLE =
   `.track{stroke:#E8E5DC}.mtrack{fill:#E8E5DC}.sep{stroke:#E5E2D9}.mlab{fill:#77746C}.mval{fill:#2D2C2A}` +
   `.glow{opacity:.3}.chip.ok{fill:#C2603F}.chip.warn{fill:#B26E12}.chip.danger{fill:#D2392B}` +
   `.shadow{opacity:.16}@keyframes idleshadow{0%,86%,100%{transform:none;opacity:.16}92%{transform:scale(.6);opacity:.08}}` +
-  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}.ptxt{fill:#B4532F}.pill{fill-opacity:.14}.pill.armed{fill-opacity:.32}.mpill{fill:#C2603F}` +
+  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}` +
   `#grad-ok stop+stop{stop-color:#EC9A78}#grad-warn stop+stop{stop-color:#F2B04E}#grad-danger stop+stop{stop-color:#F2705C}}`
 
 const DEFS =
@@ -506,7 +488,7 @@ const DEFS =
 // ───────────────────────── 整条 ─────────────────────────
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
-function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView, hit?: Hit, compact?: CompactState): string {
+function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView): string {
   // 窄窗口同样逐级收：标签 + 细条 + 百分比 → 标签 + 百分比 → 短标签 + 百分比 → 只剩百分比（完整标签在悬停提示里）
   const measure = (showBar: boolean, showLabel: boolean, isShort = false) =>
     gauges.map(g => {
@@ -515,10 +497,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
       const labelW = showLabel ? textWidth(label, 11) : 0
       const valueW = textWidth(value, 11.5) * 1.05
 
-      // 能压缩时，上下文那项的百分比后面跟一个橙色 ↓
-      const pillW = g.pills ? 14 : 0
-
-      return { g, value, label, labelW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW + pillW }
+      return { g, value, label, labelW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW }
     })
   // 间距至少 24px：Clawd 干活时会往右跑 20px，不能撞上第一项
   const fits = (list: { w: number }[]) => 2 * MINI_X + MINI_W + list.reduce((a, b) => a + b.w, 0) + list.length * 24 <= width
@@ -539,12 +518,8 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
           ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${fill}" height="3" rx="1.5" fill="url(#grad-${t})" class="mfill ${t}"/>`
           : '') +
         `<text x="${(barX + (showBar ? MINI_BAR + 8 : 0)).toFixed(1)}" y="19" class="mval">${value}</text>` +
-        (g.pills ? `<text x="${(x + w - 10).toFixed(1)}" y="19" class="mpill">↓</text>` : '') +
         `</g>`,
     )
-    if (hit && g.id === 'c') {
-      hit.ctx = { x, w }
-    }
     x += w + gap
   })
 
@@ -553,26 +528,12 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
     `<style>${STYLE}</style>` +
     DEFS +
     `<g class="gauges">${parts.join('')}</g>` +
-    clawd(isWorking, isStressed, false, true, isChill, pet, compact) +
+    clawd(isWorking, isStressed, false, true, isChill, pet) +
     `</svg>`
   )
 }
 
-// 一键压缩的状态：传了就显示压缩提示（上下文那块的胶囊 + Clawd 身后的光晕）；hit 回填 Clawd 的位置（像素），给外面叠透明按钮用
-export type CompactState = 'idle' | 'armed' | 'running'
-// x/w：Clawd 的位置；ctx：上下文那块（或细条里上下文那项）的位置，两处都叠透明按钮
-export type Hit = { x: number; w: number; ctx?: { x: number; w: number } }
-
-export function bandSvg(
-  bars: Bars,
-  isWorking: boolean,
-  width: number,
-  mini = false,
-  lang: Lang = 'zh',
-  pet?: PetView,
-  compact?: CompactState,
-  hit?: Hit,
-): string {
+export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh', pet?: PetView): string {
   const { from, to } = bars
   // $.state 存取会序列化，from/to 永远是两个对象，必须比内容
   const isChanged = JSON.stringify(from) !== JSON.stringify(to)
@@ -629,18 +590,8 @@ export function bandSvg(
     },
   ]
 
-  if (compact) {
-    gauges[0].pills = compact === 'running' ? [t.compacting] : compact === 'armed' ? [t.compactConfirm, t.compactConfirmShort] : [t.compact, t.compactShort]
-    gauges[0].pillArmed = compact !== 'idle'
-  }
-
   if (mini) {
-    // 透明按钮叠在小 Clawd 身上（压缩只在 Claude 没干活时出现，此时小 Clawd 不会来回跑）
-    if (hit) {
-      hit.x = MINI_X - 2
-      hit.w = MINI_W + 4
-    }
-    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet, hit, compact)
+    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet)
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
@@ -649,12 +600,6 @@ export function bandSvg(
   const gap = Math.max(MIN_GAP[layout], (width - 2 * CLAWD_X - CLAWD_W - widths.reduce((a, b) => a + b, 0)) / gauges.length)
   const xs: number[] = []
   widths.reduce((x, w) => (xs.push(x), x + w + gap), CLAWD_X + CLAWD_W + gap)
-  // 透明按钮叠在 Clawd 身上：Clawd 固定在最左边，位置最好对准
-  if (hit) {
-    hit.x = CLAWD_X - 4
-    hit.w = CLAWD_W + 8
-    hit.ctx = { x: xs[0], w: widths[0] }
-  }
   const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout)).join('')
   // 分隔线放在两块之间那段间距的正中间
   const seps = [1, 2, 3]
@@ -672,7 +617,7 @@ export function bandSvg(
     `<style>${STYLE}${css.join('')}</style>` +
     DEFS +
     `<g class="gauges">${seps}${blocks}</g>` +
-    clawd(isWorking, isStressed, clawdChanged, false, isChill, pet, compact) +
+    clawd(isWorking, isStressed, clawdChanged, false, isChill, pet) +
     `</svg>`
   )
 }

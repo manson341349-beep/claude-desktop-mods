@@ -26,6 +26,6 @@ export type Report = { startedAt: number; turns: number; toolCalls: number; file
 
 declare module 'claude-code' {
   interface PluginState {
-    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean; lang: 'zh' | 'en'; pet: Pet; report: Report; compact: 'idle' | 'armed' | 'running' }
+    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean; lang: 'zh' | 'en'; pet: Pet; report: Report }
   }
 }
