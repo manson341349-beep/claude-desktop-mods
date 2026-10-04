@@ -30,7 +30,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **战报卡**：输入 `/clawd-card`，生成本次会话的战报（时长、回合、工具调用、改动文件、Tokens、缓存命中、等级、本次解锁的成就），复制到剪贴板、存到桌面，直接粘贴到 X（导出图片需要 macOS）
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
-- **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 15 秒，看过就不再弹）
+- **提示条**：插件更新的内容、Clawd 升级、解锁成就，都挂在信息栏上方，不会自己消失，点右边的 × 才关（更新内容点了 × 才算看过）
 
 ### 安装
 
@@ -81,7 +81,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Report card**: `/clawd-card` makes a card of this session (duration, turns, tool calls, files edited, tokens, cache hit, level, achievements unlocked), copies it to the clipboard and saves it to the Desktop, ready to paste into X (image export needs macOS)
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
-- **What's new**: after an update, the first load shows a toast with the release notes (15 s, once)
+- **Notices**: release notes, level-ups and achievements sit above the band until you close them with × (release notes count as read only once closed)
 
 ### Install
 

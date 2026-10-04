@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.2',
+    notes: {
+      zh: ['更新内容、升级、成就改成挂在信息栏上方的提示条，不会自己消失，点右边的 × 才关'],
+      en: ['Release notes, level-ups and achievements now stay above the band until you close them with ×'],
+    },
+  },
+  {
     version: '1.4.1',
     notes: {
       zh: ['修复：重启 App 后更新提示可能一闪而过没人看到，现在等窗口连上再弹'],

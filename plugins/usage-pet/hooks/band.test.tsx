@@ -260,61 +260,84 @@ async function startWith($: Parameters<Parameters<typeof test>[1]>[0], on: Param
   // 测试里没有真实会话：补上「会话开始」和「读用量」的底层应答
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
-  // 桌面窗口已连上（/reload-plugins 的情形）
-  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
-  const toasts: { text: string; timeoutMs?: number }[] = []
-  on('ui.toast', ($, e) => {
-    toasts.push(e)
-    return { value: undefined }
-  })
   await $.session.start(START as never)
-
-  return toasts
 }
 
-test('更新提示：从上一版升上来，弹出新版本改了什么，记住已看过', ZH, async ($, on) => {
-  const toasts = await startWith($, on, { lastSeenVersion: CHANGELOG[1].version })
-  expect(toasts).toHaveLength(1)
-  expect(toasts[0].text).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
-  expect(toasts[0].text).toContain(CHANGELOG[0].notes.zh[0])
-  expect(toasts[0].timeoutMs).toBe(15000)
+// 信息栏上方提示条里的文字（桌面信息栏里只有提示条用 Text，其余都在 SVG 里）
+async function noticeLines($: Parameters<Parameters<typeof test>[1]>[0]) {
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  return { ui, lines: (await ui.findAll({ type: 'Text' })).map(t => String(t.text)) }
+}
 
-  // 已记下看过：再加载一次（比如 /reload-plugins）不再弹
+test('更新提示：挂在信息栏上方，不会自己消失；点 × 才收起并记成看过', ZH, async ($, on) => {
+  await startWith($, on, { lastSeenVersion: CHANGELOG[1].version })
+  const { ui, lines } = await noticeLines($)
+  expect(lines).toHaveLength(1)
+  expect(lines[0]).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
+  expect(lines[0]).toContain(CHANGELOG[0].notes.zh[0])
+
+  // 过了很久也还在（不是 toast）
+  await ui.redraw()
+  expect((await noticeLines($)).lines).toHaveLength(1)
+
+  await ui.press({ key: 'dismiss:whats-new' })
+  expect((await noticeLines($)).lines).toHaveLength(0)
+  // 已记下看过：再加载一次（比如 /reload-plugins）不再出现
   await $.session.start(START as never)
-  expect(toasts).toHaveLength(1)
+  expect((await noticeLines($)).lines).toHaveLength(0)
 })
 
-test('更新提示：已经看过最新版，不弹', ZH, async ($, on) => {
-  const toasts = await startWith($, on, { lastSeenVersion: CHANGELOG[0].version })
-  expect(toasts).toHaveLength(0)
+test('更新提示：没点 × 不记成看过，重新加载（App 重启、/reload-plugins）提示还在、不重复', ZH, async ($, on) => {
+  // 自己当 store（mock.store 存副本，看不到插件写了什么）
+  const kv: Record<string, unknown> = { lastSeenVersion: CHANGELOG[1].version }
+  on('store.get', ($, e) => ({ value: kv[e.key] }))
+  on('store.set', ($, e) => {
+    kv[e.key] = e.value
+    return { value: undefined }
+  })
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  await $.session.start(START as never)
+  await $.session.start(START as never)
+  expect(kv.lastSeenVersion).toBe(CHANGELOG[1].version)
+  const { ui, lines } = await noticeLines($)
+  expect(lines).toHaveLength(1)
+  await ui.press({ key: 'dismiss:whats-new' })
+  expect(kv.lastSeenVersion).toBe(CHANGELOG[0].version)
+})
+
+test('更新提示：已经看过最新版，不出现', ZH, async ($, on) => {
+  await startWith($, on, { lastSeenVersion: CHANGELOG[0].version })
+  expect((await noticeLines($)).lines).toHaveLength(0)
 })
 
 test('更新提示：新装（从没看过）只介绍最新一版', ZH, async ($, on) => {
-  const toasts = await startWith($, on, {})
-  expect(toasts).toHaveLength(1)
-  expect(toasts[0].text).toContain(CHANGELOG[0].version)
-  expect(toasts[0].text).not.toContain(CHANGELOG[1].version)
-  await $.session.start(START as never)
-  expect(toasts).toHaveLength(1)
+  await startWith($, on, {})
+  const { lines } = await noticeLines($)
+  expect(lines).toHaveLength(1)
+  expect(lines[0]).toContain(CHANGELOG[0].version)
 })
 
-test('更新提示：后面的步骤出错（注册命令失败）也不影响弹窗', ZH, async ($, on) => {
+test('更新提示：落后两版就两行、最新的在上', ZH, async ($, on) => {
+  await startWith($, on, { lastSeenVersion: CHANGELOG[2].version })
+  const { lines } = await noticeLines($)
+  expect(lines).toHaveLength(2)
+  expect(lines[0]).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
+  expect(lines[1]).toContain(`Clawd 信息栏 ${CHANGELOG[1].version}`)
+})
+
+test('更新提示：后面的步骤出错（注册命令失败）也不影响提示', ZH, async ($, on) => {
   mock.store(on, { lastSeenVersion: CHANGELOG[1].version })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
-  // 桌面窗口已连上（/reload-plugins 的情形）
-  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', () => {
     throw new Error('注册失败')
   })
-  const toasts: { text: string }[] = []
-  on('ui.toast', ($, e) => {
-    toasts.push(e)
-    return { value: undefined }
-  })
   await $.session.start(START as never)
-  expect(toasts).toHaveLength(1)
+  expect((await noticeLines($)).lines).toHaveLength(1)
 })
 
 // ───────── 语言 / 放松模式 ─────────
@@ -333,8 +356,6 @@ async function startAuto(
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
-  // 桌面窗口已连上（/reload-plugins 的情形）
-  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   const asked: string[][] = []
   on('process.run', ($, e) => {
@@ -377,21 +398,10 @@ test('英文界面：四块仍然左右留白相等、间距相等', EN, async (
 })
 
 test('英文界面：更新提示也是英文', EN, async ($, on) => {
-  mock.store(on, { lastSeenVersion: CHANGELOG[1].version })
-  on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
-  // 桌面窗口已连上（/reload-plugins 的情形）
-  on('session.surfaces', () => ({ value: ['desktop'] }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
-  const toasts: { text: string }[] = []
-  on('ui.toast', ($, e) => {
-    toasts.push(e)
-    return { value: undefined }
-  })
-  await $.session.start(START as never)
-  expect(toasts).toHaveLength(1)
-  expect(toasts[0].text).toContain(`Clawd band ${CHANGELOG[0].version}: `)
-  expect(toasts[0].text).toContain(CHANGELOG[0].notes.en[0])
+  await startWith($, on, { lastSeenVersion: CHANGELOG[1].version })
+  const { lines } = await noticeLines($)
+  expect(lines[0]).toContain(`Clawd band ${CHANGELOG[0].version}: `)
+  expect(lines[0]).toContain(CHANGELOG[0].notes.en[0])
 })
 
 test('跟随系统：环境变量是中文 → 中文，不去问 macOS', AUTO, async ($, on) => {
@@ -455,31 +465,3 @@ test('放松模式 + 干活：墨镜和干活两种状态同时挂在 Clawd 上�
   expect(src).toMatch(/class="clawd working[^"]* chill"/)
   expect(src).toContain('.chill.working .shades{animation:none;transform:translateY(-1.9px)}')
 })
-
-test('更新提示：App 重启时会话先启动、窗口还没连上，先不弹也不记「看过」；窗口连上再弹', ZH, async ($, on) => {
-  const stored: Record<string, unknown> = { lastSeenVersion: CHANGELOG[1].version }
-  mock.store(on, stored)
-  on('session.measure', ($, e) => ({ changed: e.changed }))
-  on('session.start', ($, e) => ({ cwd: e.cwd }))
-  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
-  on('command.register', ($, e) => ({ value: { command: e.name } }))
-  let surfaces: string[] = []
-  on('session.surfaces', () => ({ value: surfaces }))
-  on('session.attach', ($, e) => ({ clientId: e.clientId }))
-  const toasts: string[] = []
-  on('ui.toast', ($, e) => {
-    toasts.push(e.text)
-    return { value: undefined }
-  })
-  await $.session.start(START as never)
-  expect(toasts).toHaveLength(0)
-
-  surfaces = ['desktop']
-  await $.session.attach({ surface: 'desktop', clientId: 'desktop:default' })
-  expect(toasts).toHaveLength(1)
-  expect(toasts[0]).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
-  // 弹过才记看过：再连一次不重复弹
-  await $.session.attach({ surface: 'desktop', clientId: 'desktop:2' })
-  expect(toasts).toHaveLength(1)
-})
-

@@ -24,8 +24,11 @@ export type Pet = { xp: number; turns: number; streak: number; lastDay?: string;
 // 本会话战报：开始时间、回合、工具调用、改过的文件、输出 token、新解锁的成就
 export type Report = { startedAt: number; turns: number; toolCalls: number; files: string[]; output: number; earned: string[] }
 
+// 信息栏上方的提示条（更新内容、升级、成就）：点 × 才关
+export type Notice = { id: string; lines: string[] }
+
 declare module 'claude-code' {
   interface PluginState {
-    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean; lang: 'zh' | 'en'; pet: Pet; report: Report }
+    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean; lang: 'zh' | 'en'; pet: Pet; report: Report; notices: Notice[] }
   }
 }
