@@ -411,9 +411,9 @@ export const register: Register = (on, options) => {
       const { Box, Button, Svg } = $.ui.resolve(e)
       // 不设大下限：以前最少 560px，窗口窄时信息栏比可用宽度还宽，按钮就被挤到下一行。
       // 窄了由 bandSvg 自己逐级收（去副标题 → 只剩圆环），按钮始终在同一行右侧
-      // 上下文快满（≥60%）且 Claude 没在干活时，上下文那块的副标题换成橙色提示「点 Clawd 压缩」（收起时是 ↓），Clawd 身后光晕呼吸。
-      // 信息栏是一张图，图里收不到点击，所以在 Clawd 身上叠透明按钮接点击。
-      // 1.5.1–1.5.3 叠在上下文那块上：只有最上面一行点得到（叠层用 top+bottom 撑高度没撑开），改用 height 100%
+      // 上下文快满（≥60%）且 Claude 没在干活时，上下文那块的副标题换成橙色胶囊「压缩上下文」（收起时是 ↓），Clawd 身后光晕呼吸。
+      // 信息栏是一张图，图里收不到点击，所以在胶囊所在的上下文那块、和 Clawd 身上各叠一层透明按钮接点击。
+      // 1.5.1–1.5.3 只有最上面一行点得到：叠层用 top+bottom 撑高度没撑开；1.5.4 起改用 height 100%
       const compact = await read($, compactAtom)
       const showCompact = compact === 'running' || ((bars.to?.contextPercent ?? 0) >= COMPACT_AT && !e.props.isWorking)
       const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
@@ -441,24 +441,31 @@ export const register: Register = (on, options) => {
               height={isMini ? H_MINI : H}
               isInteractive
             />
-            {showCompact ? (
-              <Box
-                position="absolute"
-                left={Math.floor(hit.x / PX_PER_COLUMN)}
-                width={Math.max(1, Math.ceil(hit.w / PX_PER_COLUMN))}
-                top={0}
-                height="100%"
-                flexDirection="column"
-                justifyContent={isMini ? 'center' : 'flex-start'}
-                alignItems="stretch"
-              >
-                {/* 透明按钮只有一行高：展开时从上往下紧挨着叠四个，中间不留缝，把整块盖满
-                    （1.5.2 用 space-between 叠三个，按钮之间有缝，胶囊正好落在缝里点不到） */}
-                {(isMini ? ['compact'] : ['compact', 'compact-2', 'compact-3', 'compact-4']).map(key => (
-                  <Button key={key} label=" " plain onPress={() => void pressCompact($, lang)} />
-                ))}
-              </Box>
-            ) : null}
+            {showCompact
+              ? [
+                  { id: 'clawd', at: hit },
+                  { id: 'ctx', at: hit.ctx },
+                ].map(({ id, at }) =>
+                  at ? (
+                    <Box
+                      key={`hit-${id}`}
+                      position="absolute"
+                      left={Math.floor(at.x / PX_PER_COLUMN)}
+                      width={Math.max(1, Math.ceil(at.w / PX_PER_COLUMN))}
+                      top={0}
+                      height="100%"
+                      flexDirection="column"
+                      justifyContent={isMini ? 'center' : 'flex-start'}
+                      alignItems="stretch"
+                    >
+                      {/* 透明按钮只有一行高：展开时从上往下紧挨着叠四个，把整块盖满 */}
+                      {(isMini ? [''] : ['', '-2', '-3', '-4']).map(n => (
+                        <Button key={`compact${id === 'clawd' ? '' : '-ctx'}${n}`} label=" " plain onPress={() => void pressCompact($, lang)} />
+                      ))}
+                    </Box>
+                  ) : null,
+                )
+              : null}
           </Box>
           <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
         </Box>

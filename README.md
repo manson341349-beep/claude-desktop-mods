@@ -30,7 +30,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **战报卡**：输入 `/clawd-card`，生成本次会话的战报（时长、回合、工具调用、改动文件、Tokens、缓存命中、等级、本次解锁的成就），复制到剪贴板、存到「图片/Clawd Reports」（只留最近 20 张，更早的自动移进废纸篓），直接粘贴到 X（导出图片需要 macOS）
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
-- **一键压缩**：上下文到 60% 时，Clawd 身后亮起光晕，上下文那块提示「点 Clawd 压缩」（收起时是百分比旁的橙色 ↓）；点一下 Clawd 变成「再点一次 Clawd」，3 秒内再点就压缩（和 `/compact` 一样）。Claude 干活时不显示
+- **一键压缩**：上下文到 60% 时，Clawd 身后亮起光晕，上下文那块出现橙色「压缩上下文」（收起时是百分比旁的橙色 ↓）；点一下胶囊或 Clawd 变成「再点一次压缩」，3 秒内再点就压缩（和 `/compact` 一样）。Claude 干活时不显示
 - **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 1 分钟，鼠标放上去会停住，点一下就关；看过就不再弹）。升级、解锁成就也是这样提示
 
 ### 安装
@@ -82,7 +82,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Report card**: `/clawd-card` makes a card of this session (duration, turns, tool calls, files edited, tokens, cache hit, level, achievements unlocked), copies it to the clipboard and saves it to Pictures/Clawd Reports (keeps the latest 20; older ones go to the Trash), ready to paste into X (image export needs macOS)
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
-- **One-click compact**: at 60% context Clawd glows and the Context block says "Click Clawd to compact" (an orange ↓ when collapsed); click Clawd once to arm, again within 3 s to compact, same as `/compact`. Hidden while Claude works
+- **One-click compact**: at 60% context Clawd glows and the Context block shows an orange Compact pill (an orange ↓ when collapsed); click the pill or Clawd once to arm, again within 3 s to compact, same as `/compact`. Hidden while Claude works
 - **What's new**: after an update, the first load shows a toast with the release notes (one minute, hover to hold, click to close; once); level-ups and achievements show the same way
 
 ### Install

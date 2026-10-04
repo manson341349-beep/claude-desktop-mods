@@ -542,6 +542,9 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
         (g.pills ? `<text x="${(x + w - 10).toFixed(1)}" y="19" class="mpill">↓</text>` : '') +
         `</g>`,
     )
+    if (hit && g.id === 'c') {
+      hit.ctx = { x, w }
+    }
     x += w + gap
   })
 
@@ -557,7 +560,8 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
 
 // 一键压缩的状态：传了就显示压缩提示（上下文那块的胶囊 + Clawd 身后的光晕）；hit 回填 Clawd 的位置（像素），给外面叠透明按钮用
 export type CompactState = 'idle' | 'armed' | 'running'
-export type Hit = { x: number; w: number }
+// x/w：Clawd 的位置；ctx：上下文那块（或细条里上下文那项）的位置，两处都叠透明按钮
+export type Hit = { x: number; w: number; ctx?: { x: number; w: number } }
 
 export function bandSvg(
   bars: Bars,
@@ -649,6 +653,7 @@ export function bandSvg(
   if (hit) {
     hit.x = CLAWD_X - 4
     hit.w = CLAWD_W + 8
+    hit.ctx = { x: xs[0], w: widths[0] }
   }
   const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout)).join('')
   // 分隔线放在两块之间那段间距的正中间

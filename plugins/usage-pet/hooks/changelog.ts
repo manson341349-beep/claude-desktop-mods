@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.6',
+    notes: {
+      zh: ['点「压缩上下文」胶囊也能压缩了（之前只能点 Clawd）：点胶囊或 Clawd 一下，3 秒内再点就压缩'],
+      en: ['The Compact pill is clickable too (before only Clawd was): click it or Clawd once, again within 3 s to compact'],
+    },
+  },
+  {
     version: '1.5.5',
     notes: {
       zh: ['修复：上下文到 60% 时信息栏被挤成没有副标题的窄排法；「点 Clawd」提示现在按剩余空间选长短'],
