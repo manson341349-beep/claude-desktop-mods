@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.2',
+    notes: {
+      zh: ['修复：窄窗口时点圆环右上角的橙点压缩不了；现在点上下文那一块的任何位置都可以'],
+      en: ['Fix: in narrow windows the orange dot on the Context ring could not be clicked; the whole Context block now responds'],
+    },
+  },
+  {
     version: '1.5.1',
     notes: {
       zh: ['压缩按钮挪进上下文那一块：副标题换成橙色「压缩上下文」，点这一块两下就压缩；收起时是上下文百分比旁的橙色 ↓'],

@@ -579,6 +579,12 @@ test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，�
   expect(toasts).toContain('Clawd: context compacted')
   expect(await compactLabel(ui)).toBe('Compact')
   // 不再单独占位：信息栏宽度和平时一样；透明按钮叠在上下文那块的位置上
+  // 展开时三个透明按钮上中下盖满整块，点哪一个都一样
+  for (const key of ['compact-mid', 'compact-low']) expect(await ui.find({ type: 'Button', key })).toBeDefined()
+  await ui.press({ key: 'compact-low' })
+  expect(await compactLabel(ui)).toBe('Click again')
+  await ui.press({ key: 'compact-mid' })
+  expect(calls).toHaveLength(2)
   const svg = await svgOf(ui)
   expect(Number(svg.props?.width)).toBe(140 * 8 - 8 - 44)
   const drawn = JSON.stringify(await ui.drawn())
