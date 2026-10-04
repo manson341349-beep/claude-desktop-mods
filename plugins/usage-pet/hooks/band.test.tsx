@@ -260,6 +260,8 @@ async function startWith($: Parameters<Parameters<typeof test>[1]>[0], on: Param
   // 测试里没有真实会话：补上「会话开始」和「读用量」的底层应答
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  // 桌面窗口已连上（/reload-plugins 的情形）
+  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   const toasts: { text: string; timeoutMs?: number }[] = []
   on('ui.toast', ($, e) => {
@@ -301,6 +303,8 @@ test('更新提示：后面的步骤出错（注册命令失败）也不影响�
   mock.store(on, { lastSeenVersion: CHANGELOG[1].version })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  // 桌面窗口已连上（/reload-plugins 的情形）
+  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', () => {
     throw new Error('注册失败')
   })
@@ -329,6 +333,8 @@ async function startAuto(
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  // 桌面窗口已连上（/reload-plugins 的情形）
+  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   const asked: string[][] = []
   on('process.run', ($, e) => {
@@ -374,6 +380,8 @@ test('英文界面：更新提示也是英文', EN, async ($, on) => {
   mock.store(on, { lastSeenVersion: CHANGELOG[1].version })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  // 桌面窗口已连上（/reload-plugins 的情形）
+  on('session.surfaces', () => ({ value: ['desktop'] }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   const toasts: { text: string }[] = []
   on('ui.toast', ($, e) => {
@@ -447,3 +455,31 @@ test('放松模式 + 干活：墨镜和干活两种状态同时挂在 Clawd 上�
   expect(src).toMatch(/class="clawd working[^"]* chill"/)
   expect(src).toContain('.chill.working .shades{animation:none;transform:translateY(-1.9px)}')
 })
+
+test('更新提示：App 重启时会话先启动、窗口还没连上，先不弹也不记「看过」；窗口连上再弹', ZH, async ($, on) => {
+  const stored: Record<string, unknown> = { lastSeenVersion: CHANGELOG[1].version }
+  mock.store(on, stored)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  let surfaces: string[] = []
+  on('session.surfaces', () => ({ value: surfaces }))
+  on('session.attach', ($, e) => ({ clientId: e.clientId }))
+  const toasts: string[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  await $.session.start(START as never)
+  expect(toasts).toHaveLength(0)
+
+  surfaces = ['desktop']
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:default' })
+  expect(toasts).toHaveLength(1)
+  expect(toasts[0]).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
+  // 弹过才记看过：再连一次不重复弹
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:2' })
+  expect(toasts).toHaveLength(1)
+})
+

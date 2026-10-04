@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.1',
+    notes: {
+      zh: ['修复：重启 App 后更新提示可能一闪而过没人看到，现在等窗口连上再弹'],
+      en: ["Fix: after restarting the app, the what's-new toast could fire before the window was there; it now waits for the window"],
+    },
+  },
+  {
     version: '1.4.0',
     notes: {
       zh: ['Clawd 会成长了：每轮攒经验升级，解锁小芽、领结、棒球帽、皇冠，还有 8 个成就', '新命令 /clawd-card：生成本次会话的战报卡，复制到剪贴板、存到桌面，直接贴到 X'],

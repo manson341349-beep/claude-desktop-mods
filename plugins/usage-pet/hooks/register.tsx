@@ -108,10 +108,12 @@ async function langOf($: EngineInterface, choice: LangChoice): Promise<Lang> {
   return choice === 'zh' || choice === 'en' ? choice : read($, langAtom)
 }
 
+// 只在有界面连着的时候弹，弹了才记「看过」：App 重启时会话先启动、窗口后连上，
+// 那时弹的提示没人看得到，却会被记成看过（1.4.0 就这样被吞了）。没连上就等 session.attach 再弹
 async function showWhatsNew($: EngineInterface, lang: Lang) {
   const latest = CHANGELOG[0].version
   const lastSeen = await $.store.get(SEEN_KEY)
-  if (lastSeen === latest) {
+  if (lastSeen === latest || (await $.session.surfaces()).length === 0) {
     return
   }
   // 旧的先弹、新的后弹，最新的那条落在最上面
@@ -255,6 +257,18 @@ export const register: Register = (on, options) => {
     await record($, toSnap(u.context, u.rateLimits))
 
     return next(e)
+  })
+
+  // 窗口连上（App 重启后窗口晚于会话启动）：补弹更新提示
+  on('session.attach', async ($, e, next) => {
+    const attached = await next(e)
+    try {
+      await showWhatsNew($, await langOf($, choice))
+    } catch (err) {
+      $.ui.log(`usage-pet: 更新提示失败：${String(err)}`, { to: 'debug' })
+    }
+
+    return attached
   })
 
   // 每轮结束累计缓存 token（只算主循环，子代理有自己的缓存）
