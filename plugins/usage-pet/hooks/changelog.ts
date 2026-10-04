@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.0',
+    notes: {
+      zh: ['Clawd 会成长了：每轮攒经验升级，解锁小芽、领结、棒球帽、皇冠，还有 8 个成就', '新命令 /clawd-card：生成本次会话的战报卡，复制到剪贴板、存到桌面，直接贴到 X'],
+      en: ['Clawd grows: earn XP every turn, level up to unlock a sprout, a bow tie, a cap and a crown, plus 8 achievements', 'New /clawd-card: a report card of this session, copied to the clipboard and saved to the Desktop, ready to paste into X'],
+    },
+  },
+  {
     version: '1.3.0',
     notes: {
       zh: ['支持浅色界面：跟着 Claude App 的外观设置走（浅色 / 深色 / 跟随系统），不用另外设置'],

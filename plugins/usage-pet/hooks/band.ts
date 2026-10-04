@@ -1,5 +1,6 @@
 import type { Bars, Snap } from '../types'
 import { type Lang, T, weekday } from './i18n'
+import { gearOf } from './pet'
 
 // 桌面端整条（Clawd + 三个圆环）画成一张 SVG。动画全部是 SVG 内的 CSS 动画，浏览器在合成线程上按刷新率播放。
 // 桌面端任何状态变化都会重画整条、动画从头播（anthropics/claude-code#99211），
@@ -31,9 +32,12 @@ const SPRING = 'cubic-bezier(.34,1.56,.64,1)'
 
 type Tier = 'ok' | 'warn' | 'danger'
 
+// 信息栏上 Clawd 的养成状态：等级决定装扮，title 是鼠标悬停的提示
+export type PetView = { level: number; title: string }
+
 const tier = (p: number): Tier => (p >= 95 ? 'danger' : p >= 80 ? 'warn' : 'ok')
 
-function tokensText(n: number): string {
+export function tokensText(n: number): string {
   if (n >= 1e6) {
     return `${+(n / 1e6).toFixed(2)}M`
   }
@@ -210,8 +214,33 @@ function spark(cx: number, cy: number, r: number, w: number, color: string): str
     .join('')
 }
 
-// mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
-function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false): string {
+// 养成解锁的装扮（Clawd 的格子坐标，头顶 y<0）。画在 body 里，跟着呼吸、跳、跑一起动
+function gearSvg(level: number): string {
+  const { head, bowtie } = gearOf(level)
+  const hat =
+    head === 'sprout'
+      ? px(7.75, -1.7, 0.5, 1.7, '#5E9E4B') + px(6.3, -2.3, 1.4, 0.7, '#7BC163') + px(8.3, -2.8, 1.4, 0.7, '#8ED073')
+      : head === 'cap'
+        ? `<rect x="3.4" y="-1.8" width="9" height="1.9" rx=".8" fill="#3E6FD8"/>` +
+          px(4.2, -1.45, 2.2, 0.35, '#7FA3EC') +
+          `<rect x="10.6" y="-.45" width="4.4" height=".6" rx=".25" fill="#2B57B3"/>` +
+          `<rect x="7.6" y="-2.15" width=".8" height=".45" rx=".2" fill="#2B57B3"/>`
+        : head === 'crown'
+          ? `<path d="M4.2 0V-2.4L6.1-1.2 8-3 9.9-1.2 11.8-2.4V0Z" fill="#F2C14E"/>` +
+            px(4.2, -0.55, 7.6, 0.55, '#D9A23A') +
+            px(7.6, -1.5, 0.8, 0.8, '#E5484D') +
+            px(5.1, -1, 0.6, 0.6, '#5FB0F0') +
+            px(10.3, -1, 0.6, 0.6, '#5FB0F0')
+          : ''
+  const tie = bowtie
+    ? `<path d="M6.4 5.3 7.8 5.85 6.4 6.4Z" fill="#E5484D"/><path d="M9.6 5.3 8.2 5.85 9.6 6.4Z" fill="#E5484D"/>` + px(7.6, 5.55, 0.8, 0.6, '#B83238')
+    : ''
+
+  return tie + hat
+}
+
+// Clawd 的身子（不含阴影、笔记本、爱心）：信息栏和战报卡共用
+export function clawdBody(isStressed: boolean, level = 1): string {
   const eyes =
     `<g class="eyes"><g class="look">` +
     px(4, 2, 1, 2, '#231511', ' class="eye"') +
@@ -244,7 +273,17 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
     `<rect x="10.1" y="1.95" width="1.2" height=".38" fill="#F6E7DC" opacity=".8"/></g>` +
     happy +
     cheeks +
-    brows
+    brows +
+    gearSvg(level)
+
+  return body
+}
+
+// mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
+function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView): string {
+  const body = clawdBody(isStressed, pet?.level)
+  // 头上戴了东西，干活时的小火花挪到头的左边，不跟帽子打架
+  const sparkAt = gearOf(pet?.level ?? 1).head ? '-1.2 -1.2' : '8 -2.6'
 
   const laptop = isWorking && !mini
     ? `<g class="laptop">` +
@@ -261,7 +300,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
       ]
         .map(([glyph, x, delay]) => `<text x="${x}" y="4.2" class="glyph" style="animation-delay:${delay}">${glyph}</text>`)
         .join('') +
-      `<g transform="translate(8 -2.6)"><g class="spark-pulse"><g class="spark-spin">${spark(0, 0, 1.45, 0.5, '#E98D6E')}</g></g></g>`
+      `<g transform="translate(${sparkAt})"><g class="spark-pulse"><g class="spark-spin">${spark(0, 0, 1.45, 0.5, '#E98D6E')}</g></g></g>`
     : ''
 
   const sweat = isStressed
@@ -298,6 +337,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
   return (
     `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}" ` +
     `transform="translate(${mini ? MINI_X : CLAWD_X} ${mini ? MINI_Y : CLAWD_Y}) scale(${mini ? MINI_U : U})">` +
+    (pet ? `<title>${pet.title}</title>` : '') +
     `<circle cx="8" cy="5" r="9.5" fill="url(#aura)" class="aura"/>` +
     `<g class="pace">` +
     `<ellipse cx="8" cy="9.75" rx="6.3" ry=".55" class="shadow ${didChange ? 'once' : isWorking ? '' : 'idle'}"/>` +
@@ -413,7 +453,7 @@ const DEFS =
 // ───────────────────────── 整条 ─────────────────────────
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
-function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean): string {
+function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView): string {
   const items = gauges.map(g => {
     const value = g.to === undefined ? '—' : `${Math.round(g.to)}%`
     const labelW = textWidth(g.label, 11)
@@ -447,12 +487,12 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
     `<style>${STYLE}</style>` +
     DEFS +
     `<g class="gauges">${parts.join('')}</g>` +
-    clawd(isWorking, isStressed, false, true, isChill) +
+    clawd(isWorking, isStressed, false, true, isChill, pet) +
     `</svg>`
   )
 }
 
-export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh'): string {
+export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh', pet?: PetView): string {
   const { from, to } = bars
   // $.state 存取会序列化，from/to 永远是两个对象，必须比内容
   const isChanged = JSON.stringify(from) !== JSON.stringify(to)
@@ -506,7 +546,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
   ]
 
   if (mini) {
-    return miniSvg(gauges, isWorking, isStressed, width, isChill)
+    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet)
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
@@ -531,7 +571,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     `<style>${STYLE}${css.join('')}</style>` +
     DEFS +
     `<g class="gauges">${seps}${blocks}</g>` +
-    clawd(isWorking, isStressed, clawdChanged, false, isChill) +
+    clawd(isWorking, isStressed, clawdChanged, false, isChill, pet) +
     `</svg>`
   )
 }

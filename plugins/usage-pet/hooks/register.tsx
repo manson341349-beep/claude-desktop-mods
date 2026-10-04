@@ -1,10 +1,12 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
-import type { Bars, CacheStat, CacheTotals, Snap } from '../types'
-import { bandAlt, bandSvg, H, H_MINI } from './band'
+import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
+import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
+import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
 import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T } from './i18n'
+import { type Achievement, levelOf, NEW_PET, normalize, onTurn, threshold } from './pet'
 
 const barsAtom = atom({ plugin: 'usage-pet', key: 'bars' } as const, { from: null, to: null } as Bars)
 
@@ -16,6 +18,15 @@ const pinnedAtom = atom({ plugin: 'usage-pet', key: 'pinned' } as const, false)
 // 界面语言：session.start 时定下来（/config 选了就用选的，auto 就跟随系统）
 const langAtom = atom({ plugin: 'usage-pet', key: 'lang' } as const, 'en' as Lang)
 const EXPAND_MS = 5000
+// 养成：跨会话的那份在 $.store 的 PET_KEY；这里留一份给信息栏画
+const petAtom = atom({ plugin: 'usage-pet', key: 'pet' } as const, NEW_PET as Pet)
+const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], output: 0, earned: [] }
+const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
+const PET_KEY = 'pet'
+const CARD_PANE = 'clawd-card'
+// 改文件的工具：战报里「改动文件」按它们的路径去重计数
+const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
+const MAX_FILES = 500
 // 只让最后一次展开的定时器生效，免得早先的定时器提前收起
 let expandToken = 0
 // 展开 / 收起按钮占的宽度（像素），SVG 让出这一截
@@ -130,6 +141,72 @@ async function record($: EngineInterface, snap: Snap) {
   $.clock.after(1300, () => void update($, barsAtom, bars => (sameSnap(bars.from, bars.to) ? bars : { from: bars.to, to: bars.to })))
 }
 
+function petView(pet: Pet, lang: Lang): PetView {
+  const level = levelOf(pet.xp)
+
+  return { level, title: T[lang].petTitle(level, pet.xp, threshold(level + 1), pet.streak) }
+}
+
+// 每答完一轮：从 store 读最新的（别的会话可能也在涨经验），算完写回，升级 / 成就弹提示
+async function growPet($: EngineInterface, rate: number | undefined, lang: Lang) {
+  const bars = await read($, barsAtom)
+  const maxLimit = Math.max(bars.to?.session?.percent ?? 0, bars.to?.weekly?.percent ?? 0)
+  const { pet, events } = onTurn(normalize(await $.store.get(PET_KEY)), { now: new Date(), turnRate: rate, maxLimit })
+  await $.store.set(PET_KEY, pet)
+  await update($, petAtom, () => pet)
+  const t = T[lang]
+  for (const ev of events) {
+    if (ev.kind === 'level') {
+      $.ui.toast(t.levelUp(ev.level, ev.gear ? t.gear[ev.gear] : undefined), { timeoutMs: 8000 })
+    } else {
+      const [name, how] = t.achievement[ev.id]
+      $.ui.toast(t.unlocked(name, how), { timeoutMs: 8000 })
+      await update($, reportAtom, r => ({ ...r, earned: [...r.earned, ev.id] }))
+    }
+  }
+}
+
+async function cardData($: EngineInterface): Promise<CardData> {
+  const r = await read($, reportAtom)
+  const c = await read($, cacheAtom)
+
+  return {
+    startedAt: r.startedAt || Date.now(),
+    now: Date.now(),
+    turns: r.turns,
+    toolCalls: r.toolCalls,
+    files: r.files.length,
+    tokens: c.read + c.write + c.fresh + r.output,
+    cacheRate: cacheStat(c)?.rate,
+    pet: await read($, petAtom),
+    earned: r.earned as Achievement[],
+  }
+}
+
+// 导出 PNG（macOS）：qlmanage 把正方形 SVG 渲染成 1200×1200，sips 从正中裁出 1200×675，
+// 存到桌面，再用 osascript 放进剪贴板（桌面端的 $.ui.copy 还不支持远程界面，而且只能放文字）
+const EXPORT_SH =
+  'set -e; d=$(mktemp -d); trap \'rm -r "$d"\' EXIT; cat > "$d/card.svg"; ' +
+  'qlmanage -t -s 1200 -o "$d" "$d/card.svg" >/dev/null 2>&1; ' +
+  'out="$HOME/Desktop/$1"; sips -c 675 1200 "$d/card.svg.png" --out "$out" >/dev/null; ' +
+  'osascript -e "set the clipboard to (read (POSIX file \\"$out\\") as «class PNGf»)" >/dev/null; printf %s "$out"'
+
+async function exportCard($: EngineInterface, svg: string): Promise<{ path: string } | { error: string }> {
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const name = `Clawd-report-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`
+  try {
+    const { exitCode, stdout, stderr } = await $.process.run(['/bin/sh', '-c', EXPORT_SH, 'sh', name], { stdin: svg, timeoutMs: 30000 })
+    if (exitCode !== 0 || !stdout.endsWith(name)) {
+      return { error: (stderr || `exit ${exitCode}`).trim().slice(0, 200) }
+    }
+
+    return { path: stdout }
+  } catch (err) {
+    return { error: String(err).slice(0, 200) }
+  }
+}
+
 export const register: Register = (on, options) => {
   const choice = (options?.language ?? 'auto') as LangChoice
 
@@ -142,6 +219,14 @@ export const register: Register = (on, options) => {
       $.ui.log(`usage-pet: language detection failed: ${String(err)}`, { to: 'debug' })
     }
     await update($, langAtom, () => lang)
+    // 养成数据从 store 读进来；战报从这个会话第一次加载开始计时（重载插件不重置）
+    try {
+      const pet = normalize(await $.store.get(PET_KEY))
+      await update($, petAtom, () => pet)
+    } catch (err) {
+      $.ui.log(`usage-pet: 读养成数据失败：${String(err)}`, { to: 'debug' })
+    }
+    await update($, reportAtom, r => (r.startedAt ? r : { ...r, startedAt: Date.now() }))
     // 更新提示放最前：后面注册命令、读用量出错（整个 hook 会被跳过）也不会吞掉它；
     // 它自己出错只记调试日志，不拦后面的步骤
     try {
@@ -154,6 +239,7 @@ export const register: Register = (on, options) => {
       description: 'Clawd band: toggle always-expanded / auto-collapse · 在「一直展开」和「自动收起」之间切换',
       immediate: true,
     })
+    await $.command.register({ name: 'clawd-card', description: `${T.en.cardCommand} · ${T.zh.cardCommand}` })
     // summary：本地估算，不发请求；只用它的 apiUsage（上一次回复的用量）给还没读数的缓存垫底
     const u = await $.session.usage({ breakdown: 'summary' })
     const last = u.context.breakdown?.apiUsage
@@ -186,8 +272,54 @@ export const register: Register = (on, options) => {
         await record($, bars.to)
       }
     }
+    if (e.agentId === undefined) {
+      await update($, reportAtom, r => ({ ...r, turns: r.turns + 1, output: r.output + (u?.output_tokens ?? 0) }))
+      try {
+        await growPet($, u ? turnRate(u) : undefined, await langOf($, choice))
+      } catch (err) {
+        $.ui.log(`usage-pet: 养成更新失败：${String(err)}`, { to: 'debug' })
+      }
+    }
 
     return next(e)
+  })
+
+  // 战报：工具调用次数（含子代理），改过的文件按路径去重；被拦下的不算
+  on('tool.call', async ($, e, next) => {
+    const ran = await next(e)
+    if (!('deny' in ran && ran.deny !== undefined)) {
+      const input = e as unknown as { file_path?: unknown; notebook_path?: unknown }
+      const path = EDIT_TOOLS.has(e.tool) ? (input.file_path ?? input.notebook_path) : undefined
+      await update($, reportAtom, r => ({
+        ...r,
+        toolCalls: r.toolCalls + 1,
+        files: typeof path === 'string' && !r.files.includes(path) && r.files.length < MAX_FILES ? [...r.files, path] : r.files,
+      }))
+    }
+
+    return ran
+  })
+
+  on('command.run', { command: 'clawd-card' }, async $ => {
+    const lang = await langOf($, choice)
+    await $.ui.open({ id: CARD_PANE, title: T[lang].card.title })
+    const out = await exportCard($, cardSvg(await cardData($), lang, true))
+
+    return { text: 'path' in out ? T[lang].cardSaved(out.path) : T[lang].cardOnlyShown(out.error) }
+  })
+
+  on('ui.render', { component: 'Pane', requestId: CARD_PANE }, async ($, e) => {
+    const lang = await langOf($, choice)
+    const data = await cardData($)
+    if (e.surface === 'terminal') {
+      const { Text } = $.ui.resolve(e)
+
+      return <Text>{cardAlt(data, lang)}</Text>
+    }
+    const { Svg } = $.ui.resolve(e)
+    const width = Math.min(CARD_W, Math.max(320, (e.viewport?.columns ?? 80) * PX_PER_COLUMN - 24))
+
+    return <Svg source={cardSvg(data, lang)} alt={cardAlt(data, lang)} width={width} height={Math.round((width * CARD_H) / CARD_W)} />
   })
 
   on('command.run', { command: 'clawd' }, async $ => {
@@ -213,6 +345,7 @@ export const register: Register = (on, options) => {
 
     const bars = await read($, barsAtom)
     const lang = await langOf($, choice)
+    const pet = petView(await read($, petAtom), lang)
 
     // 桌面端的 Client 在 2.1.286 上一律 10 秒超时（缺 CSP nonce，同见 #99211），所以桌面只用 Svg
     if (e.surface === 'desktop') {
@@ -232,7 +365,7 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="row" alignItems="center">
           <Svg
-            source={bandSvg(bars, e.props.isWorking, width, isMini, lang)}
+            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
             alt={bandAlt(bars.to, e.props.isWorking, lang)}
             width={width}
             height={isMini ? H_MINI : H}
