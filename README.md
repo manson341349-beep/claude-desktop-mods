@@ -12,6 +12,8 @@ Mods for the **Code tab of the Claude Desktop app**.
 
 ![usage-pet preview](assets/usage-pet-preview.png)
 
+🎬 宣传片 / Promo video（English · 中文）: [x.com/Superboy4949](https://x.com/Superboy4949/status/2106760680837890311)
+
 ---
 
 ## 中文
