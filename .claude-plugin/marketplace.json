@@ -1,0 +1,17 @@
+{
+  "name": "claude-desktop-mods",
+  "owner": {
+    "name": "manson341349-beep",
+    "url": "https://github.com/manson341349-beep"
+  },
+  "description": "Unofficial mods for the Code tab of Claude Desktop",
+  "plugins": [
+    {
+      "name": "usage-pet",
+      "source": "./plugins/usage-pet",
+      "description": "Usage band above the prompt (context / 5-hour / weekly / cache hit) with Clawd, an animated pixel pet",
+      "category": "productivity",
+      "tags": ["mod", "usage", "desktop"]
+    }
+  ]
+}

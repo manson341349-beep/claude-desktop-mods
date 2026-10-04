@@ -1,0 +1,17 @@
+{
+  "name": "usage-pet",
+  "description": "A usage band above the prompt — context, 5-hour limit, weekly limit, cache hit rate — with Clawd, an animated pixel pet. For the Code tab of Claude Desktop.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "manson341349-beep",
+    "url": "https://github.com/manson341349-beep"
+  },
+  "repository": "https://github.com/manson341349-beep/claude-desktop-mods",
+  "license": "MIT",
+  "keywords": [
+    "mod",
+    "usage",
+    "desktop",
+    "pet"
+  ]
+}

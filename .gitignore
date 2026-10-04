@@ -1,0 +1,5 @@
+# 引擎在开发时自动生成的类型声明与 tsconfig（含本机路径）
+.claude-plugin/types/
+plugins/*/.claude-plugin/types/
+plugins/*/tsconfig.json
+.DS_Store

@@ -1,0 +1,110 @@
+# claude-desktop-mods
+
+为 **Claude 桌面 App 的 Code 页** 做的 mod（Claude Code 插件）。
+Mods for the **Code tab of the Claude Desktop app**.
+
+> **非官方项目**：与 Anthropic 无关，也未获其认可。Clawd 是 Anthropic 的吉祥物，这里是粉丝自制的像素版。
+> **Unofficial.** Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's mascot; the pixel version here is fan-made.
+
+| Mod | 简介 / What it does |
+| --- | --- |
+| [`usage-pet`](plugins/usage-pet) | 输入框上方的用量信息栏 + Clawd 像素桌宠 · A usage band above the prompt with Clawd, an animated pixel pet |
+
+![usage-pet preview](assets/usage-pet-preview.png)
+
+---
+
+## 中文
+
+### usage-pet：Clawd 信息栏
+
+- **四项用量**：上下文、5 小时额度、每周额度、缓存命中率（本会话累计）。80% 变琥珀色，95% 变红；缓存命中低于 50% 才提醒
+- **自动折叠**：平时是一条 30px 的细条；每次 Claude 回答完、数据刷新时自动展开 5 秒，播完动画再收起
+- **展开时**：圆环依次扫入、数字像老虎机一样滚动、旁边飘出「+N%」
+- **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖
+- **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
+- **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
+
+### 安装
+
+在终端运行：
+
+```bash
+claude plugin marketplace add manson341349-beep/claude-desktop-mods
+claude plugin install usage-pet@claude-desktop-mods
+```
+
+然后在 Claude App 的会话里输入 `/reload-plugins`，或者新开一个会话。
+
+### 更新
+
+第三方插件市场**默认不自动更新**。想自动收到新版本：在会话里打开 `/plugin` → **Marketplaces** → 选 `claude-desktop-mods` → **Enable auto-update**。之后有新版本时会提示 `Plugin updated: usage-pet · Run /reload-plugins to apply`。
+
+手动更新：
+
+```bash
+claude plugin update usage-pet@claude-desktop-mods
+```
+
+### 需要什么 / 已知限制
+
+- Claude 桌面 App 的 **Code 页**，深色主题。终端版只显示数字，没有 Clawd 和圆环动画
+- Claude Code **2.1.287 起**默认支持 mod；作者在 2.1.286（macOS）上实测
+- 界面文字是中文
+- 桌面 App 目前有一个重画 bug（[anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)）：状态变化时动画会从头播；▲▼ 按钮偶尔点不动，可以用 `/clawd` 代替
+
+### 卸载
+
+```bash
+claude plugin uninstall usage-pet@claude-desktop-mods
+```
+
+---
+
+## English
+
+### usage-pet
+
+- **Four meters**: context window, 5-hour limit, weekly limit, and cache hit rate (cumulative for the session). Amber at 80%, red at 95%; cache hit warns below 50%
+- **Auto-collapse**: a 30px strip most of the time; expands for 5 seconds whenever usage data refreshes, plays its animations, then collapses
+- **Expanded**: rings sweep in, digits roll like an odometer, `+N%` chips float up
+- **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%
+- **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
+- **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
+
+UI labels are in Chinese.
+
+### Install
+
+```bash
+claude plugin marketplace add manson341349-beep/claude-desktop-mods
+claude plugin install usage-pet@claude-desktop-mods
+```
+
+Then run `/reload-plugins` in a session, or start a new one.
+
+### Updates
+
+Auto-update is **off by default** for third-party marketplaces. Turn it on in `/plugin` → **Marketplaces** → `claude-desktop-mods` → **Enable auto-update**, or update by hand with `claude plugin update usage-pet@claude-desktop-mods`.
+
+### Requirements and known issues
+
+- The **Code tab of Claude Desktop**, dark theme. The terminal shows numbers only
+- Mods are on by default from Claude Code **2.1.287**; tested by the author on 2.1.286 (macOS)
+- Desktop redraws every mod site on any state change ([anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)), which restarts animations and can make the ▲▼ button miss clicks; `/clawd` always works
+
+---
+
+## 开发 / Development
+
+```bash
+claude plugin validate plugins/usage-pet
+claude plugin test plugins/usage-pet
+```
+
+做桌面端 mod 踩过的坑：[docs/desktop-mod-notes.md](docs/desktop-mod-notes.md)
+Pitfalls we hit building a desktop mod: [docs/desktop-mod-notes.md](docs/desktop-mod-notes.md)
+
+## License
+
+[MIT](LICENSE)
