@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.5',
+    notes: {
+      zh: ['窗口变窄时信息栏跟着收：先去掉副标题，再把标题缩小放到圆环下面，最窄只留圆环；▼ 按钮始终在右边，不再掉到下一行'],
+      en: ['Narrow windows: the band now adapts (drops subtitles, then tucks labels under the rings, then rings only) and the ▼ button stays on the right instead of wrapping'],
+    },
+  },
+  {
     version: '1.4.4',
     notes: {
       zh: ['修复：鼠标放到圆环上换出的详情文字会压到分隔线、或被右边裁掉'],

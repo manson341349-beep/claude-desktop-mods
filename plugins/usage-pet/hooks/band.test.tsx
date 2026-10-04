@@ -501,3 +501,39 @@ test('悬停换上的详情（如「84,000 tokens」）比副标题长时，这�
   // 最后一块的右边不超过信息栏宽度（右边留白 22）
   expect(blocks[3][0] + blocks[3][1]).toBeLessThanOrEqual(1068 - 22 + 0.6)
 })
+
+test('窗口变窄：信息栏宽度跟着收，加上右边按钮也不超过可用宽度（按钮不会被挤到下一行）；内容逐级收，不出右边界', EN, async ($, on) => {
+  const clock = mock.clock(on)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('turn.complete', ($, e) => ({ text: '', usage: e.usage }))
+  await $.session.measure(measure(42, 8, 63))
+  await $.turn.complete(turn(990000, 140000, 5000))
+  const seen = new Set<string>()
+  for (const cols of [140, 80, 70, 58, 45, 40]) {
+    const band = { ...BAND(false), props: { ...BAND(false).props, bodyColumns: cols }, viewport: { columns: cols, rows: 40 }, surface: 'desktop' as const }
+    const svg = await svgOf(await $.ui.mount(band))
+    const width = Number(svg.props?.width)
+    // 可用宽度 ≈ 每列 8px；SVG + 按钮（44）不超过它（最窄 270 的下限只在极窄时才起作用）
+    if (cols * 8 - 8 >= 270 + 44) expect(width + 44).toBeLessThanOrEqual(cols * 8 - 8)
+    const src = String(svg.props?.source)
+    const blocks = [...src.matchAll(/<rect x="([\d.]+)" y="6" width="([\d.]+)" height="52" fill="transparent"\/>/g)].map(m => Number(m[1]) + Number(m[2]))
+    expect(blocks).toHaveLength(4)
+    expect(Math.max(...blocks)).toBeLessThanOrEqual(width - 22 + 0.6)
+    // 收掉的文字还在悬停提示里
+    expect(src).toContain('<title>Context 42% · 84,000 / 200,000 tokens</title>')
+    seen.add(src.includes('class="sub"') ? 'full' : src.includes('class="lab stk"') ? 'stacked' : src.includes('class="lab"') ? 'compact' : 'rings')
+  }
+  // 这组宽度把四种排法都走到了
+  expect([...seen].sort()).toEqual(['compact', 'full', 'rings', 'stacked'])
+
+  // 收起的细条同样不出右边界
+  await clock.advance(5100)
+  for (const cols of [140, 70, 58, 45]) {
+    const band = { ...BAND(false), props: { ...BAND(false).props, bodyColumns: cols }, viewport: { columns: cols, rows: 40 }, surface: 'desktop' as const }
+    const svg = await svgOf(await $.ui.mount(band))
+    const width = Number(svg.props?.width)
+    const items = [...String(svg.props?.source).matchAll(/<rect x="([\d.]+)" y="2" width="([\d.]+)" height="26" fill="transparent"\/>/g)].map(m => Number(m[1]) + Number(m[2]))
+    expect(items).toHaveLength(4)
+    expect(Math.max(...items)).toBeLessThanOrEqual(width - 14 + 0.6)
+  }
+})

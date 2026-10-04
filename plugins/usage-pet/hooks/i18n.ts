@@ -28,6 +28,8 @@ export const T = {
     session: '5 小时额度',
     weekly: '每周额度',
     cache: '缓存命中',
+    // 收起的细条在窄窗口里用的短标签
+    short: { context: '上下文', session: '5小时', weekly: '每周', cache: '缓存' },
     waitingReply: '等待第一次回复',
     noData: '暂无读数',
     reset: (time: string) => `${time} 重置`,
@@ -84,6 +86,7 @@ export const T = {
     session: '5-hour',
     weekly: 'Weekly',
     cache: 'Cache hit',
+    short: { context: 'Ctx', session: '5h', weekly: 'Week', cache: 'Cache' },
     waitingReply: 'Waiting for a reply',
     noData: 'No data yet',
     reset: (time: string) => `Resets ${time}`,

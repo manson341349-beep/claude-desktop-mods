@@ -31,6 +31,8 @@ const MAX_FILES = 500
 let expandToken = 0
 // 展开 / 收起按钮占的宽度（像素），SVG 让出这一截
 const BUTTON_W = 44
+// 信息栏最窄：Clawd + 四个圆环挨着放的宽度
+const MIN_BAND_W = 270
 // 按钮用图标：信息栏往上长，▲ = 往上撑开，▼ = 往下收回。
 // 这一对是同一字体里的成对字形，Chrome 实测都是 19×20px、同样居中（⌃⌄ 不是一对，大小差很多）
 const ICON_EXPAND = '▲'
@@ -366,7 +368,9 @@ export const register: Register = (on, options) => {
     // 桌面端的 Client 在 2.1.286 上一律 10 秒超时（缺 CSP nonce，同见 #99211），所以桌面只用 Svg
     if (e.surface === 'desktop') {
       const { Box, Button, Svg } = $.ui.resolve(e)
-      const width = Math.max(560, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
+      // 不设大下限：以前最少 560px，窗口窄时信息栏比可用宽度还宽，按钮就被挤到下一行。
+      // 窄了由 bandSvg 自己逐级收（去副标题 → 只剩圆环），按钮始终在同一行右侧
+      const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
       const pinned = await read($, pinnedAtom)
       const isMini = !pinned && !(await read($, expandedAtom))
       // 收起时按「展开」= 一直展开；展开时按「收起」= 立刻收起并回到自动模式
@@ -379,7 +383,7 @@ export const register: Register = (on, options) => {
       }
 
       return (
-        <Box flexDirection="row" alignItems="center">
+        <Box flexDirection="row" alignItems="center" flexWrap="nowrap">
           <Svg
             source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
             alt={bandAlt(bars.to, e.props.isWorking, lang)}

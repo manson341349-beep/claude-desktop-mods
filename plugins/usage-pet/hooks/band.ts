@@ -97,10 +97,35 @@ function textWidth(text: string, size: number): number {
 // （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
 const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
 
+// 窗口窄的时候逐级收：full（圆环 + 标题 + 副标题）→ compact（圆环 + 标题）→ stacked（圆环上移、小字标题放在圆环下面）
+// → rings（只有圆环）。收掉的文字都还在每块的悬停提示（<title>）里。
+// 宁可少字，也不让内容挤出信息栏、把右边的按钮挤到下一行
+type Layout = 'full' | 'compact' | 'stacked' | 'rings'
+const STACKED_LABEL = 9
+const blockWidth = (g: Gauge, layout: Layout) =>
+  layout === 'full'
+    ? contentWidth(g)
+    : layout === 'compact'
+      ? 2 * R + 4 + 10 + textWidth(g.label, 12)
+      : layout === 'stacked'
+        ? Math.max(2 * R + 4, textWidth(g.label, STACKED_LABEL))
+        : 2 * R + 4
+// 每种排法要求的最小间距：标题在圆环下面、或只剩圆环时可以挨得更近
+const MIN_GAP: Record<Layout, number> = { full: 14, compact: 14, stacked: 10, rings: 6 }
+
+export function pickLayout(gauges: { label: string; sub: string; detail: string }[], width: number): Layout {
+  const need = (layout: Layout) =>
+    2 * CLAWD_X + CLAWD_W + gauges.reduce((a, g) => a + blockWidth(g as Gauge, layout), 0) + gauges.length * MIN_GAP[layout]
+
+  return (['full', 'compact', 'stacked'] as const).find(layout => need(layout) <= width) ?? 'rings'
+}
+
 type Gauge = {
   tier?: Tier
   id: string
   label: string
+  // 窄窗口细条里用的短标签
+  short?: string
   sub: string
   detail: string
   title: string
@@ -151,9 +176,10 @@ function odometer(g: Gauge, i: number, cx: number, cy: number, isChanged: boolea
   return digits + (isWide ? '' : `<text x="${(left + s.length * dig + 0.5).toFixed(1)}" y="${cy + 3.8}" class="pct">%</text>`)
 }
 
-function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[]): string {
-  const cx = x + R + 2
-  const cy = 32
+function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[], layout: Layout = 'full'): string {
+  // stacked：圆环在这一块里居中、往上挪，给下面的小字标题让位
+  const cx = layout === 'stacked' ? x + w / 2 : x + R + 2
+  const cy = layout === 'stacked' ? 25 : 32
   const t = g.tier ?? tier(g.to ?? 0)
   const visible = (g.to ?? 0) > 0.4
   const arcClass = `arc${g.id}`
@@ -170,7 +196,9 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
   if (isChanged && !isFirst && g.from !== undefined && g.to !== undefined) {
     const delta = Math.round(g.to) - Math.round(g.from)
     if (delta !== 0) {
-      chip = `<text x="${cx + R + 10}" y="15" class="chip ${t}">${delta > 0 ? '+' : ''}${delta}%</text>`
+      // 窄排法里旁边没有标题的位置，+N% 贴着圆环右上角
+      const chipX = layout === 'full' || layout === 'compact' ? cx + R + 10 : cx + R - 2
+      chip = `<text x="${chipX}" y="${layout === 'full' || layout === 'compact' ? 15 : 10}" class="chip ${t}">${delta > 0 ? '+' : ''}${delta}%</text>`
     }
   }
 
@@ -187,9 +215,15 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
     `<g transform="rotate(-90 ${cx} ${cy})">${arc(`glow ${t}`)}${arc('arc')}</g>` +
     odometer(g, i, cx, cy, isChanged, css) +
     `</g>` +
-    `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
-    `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` +
-    `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>` +
+    (layout === 'full'
+      ? `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
+        `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` +
+        `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`
+      : layout === 'compact'
+        ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>`
+        : layout === 'stacked'
+          ? `<text x="${cx}" y="56" text-anchor="middle" class="lab stk">${g.label}</text>`
+          : '') +
     chip +
     `</g>`
   )
@@ -361,7 +395,7 @@ const STYLE =
   `:root{color-scheme:light dark;background:transparent}text{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif}` +
   `.num{font-size:11px;font-weight:700;fill:#F4F2EC;font-variant-numeric:tabular-nums}.num.dim{fill:#6E6C66}.num.sm{font-size:9.5px}` +
   `.pct{font-size:7.5px;font-weight:600;fill:#9C9A93}` +
-  `.lab{font-size:12px;font-weight:500;fill:#ECEAE4;letter-spacing:.2px}` +
+  `.lab{font-size:12px;font-weight:500;fill:#ECEAE4;letter-spacing:.2px}.lab.stk{font-size:${STACKED_LABEL}px;letter-spacing:0}` +
   `.sub,.sub2{font-size:10.5px;fill:#8C8A84;font-variant-numeric:tabular-nums;transition:opacity .22s ease,filter .22s ease}` +
   `.sub2{opacity:0;filter:blur(2px);fill:#C9C6BE}` +
   `.track{fill:none;stroke:#2C2B29;stroke-width:3}` +
@@ -455,29 +489,35 @@ const DEFS =
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
 function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView): string {
-  const items = gauges.map(g => {
-    const value = g.to === undefined ? '—' : `${Math.round(g.to)}%`
-    const labelW = textWidth(g.label, 11)
+  // 窄窗口同样逐级收：标签 + 细条 + 百分比 → 标签 + 百分比 → 短标签 + 百分比 → 只剩百分比（完整标签在悬停提示里）
+  const measure = (showBar: boolean, showLabel: boolean, isShort = false) =>
+    gauges.map(g => {
+      const value = g.to === undefined ? '—' : `${Math.round(g.to)}%`
+      const label = isShort ? (g.short ?? g.label) : g.label
+      const labelW = showLabel ? textWidth(label, 11) : 0
+      const valueW = textWidth(value, 11.5) * 1.05
 
-    return { g, value, labelW, w: labelW + 8 + MINI_BAR + 8 + textWidth(value, 11.5) * 1.05 }
-  })
+      return { g, value, label, labelW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW }
+    })
   // 间距至少 24px：Clawd 干活时会往右跑 20px，不能撞上第一项
+  const fits = (list: { w: number }[]) => 2 * MINI_X + MINI_W + list.reduce((a, b) => a + b.w, 0) + list.length * 24 <= width
+  const items = [measure(true, true), measure(false, true), measure(false, true, true)].find(fits) ?? measure(false, false)
   const gap = Math.max(24, (width - 2 * MINI_X - MINI_W - items.reduce((a, b) => a + b.w, 0)) / items.length)
   let x = MINI_X + MINI_W + gap
   const parts: string[] = []
-  items.forEach(({ g, value, labelW, w }) => {
+  items.forEach(({ g, value, label, labelW, showBar, showLabel, w }) => {
     const t = g.tier ?? tier(g.to ?? 0)
-    const barX = x + labelW + 8
+    const barX = x + (showLabel ? labelW + 8 : 0)
     const fill = ((Math.min(100, Math.max(0, g.to ?? 0)) / 100) * MINI_BAR).toFixed(1)
     parts.push(
       `<g><title>${g.title}</title>` +
         `<rect x="${x.toFixed(1)}" y="2" width="${w.toFixed(1)}" height="26" fill="transparent"/>` +
-        `<text x="${x.toFixed(1)}" y="19" class="mlab">${g.label}</text>` +
-        `<rect x="${barX.toFixed(1)}" y="13.5" width="${MINI_BAR}" height="3" rx="1.5" class="mtrack"/>` +
-        ((g.to ?? 0) > 0.4
+        (showLabel ? `<text x="${x.toFixed(1)}" y="19" class="mlab">${label}</text>` : '') +
+        (showBar ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${MINI_BAR}" height="3" rx="1.5" class="mtrack"/>` : '') +
+        (showBar && (g.to ?? 0) > 0.4
           ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${fill}" height="3" rx="1.5" fill="url(#grad-${t})" class="mfill ${t}"/>`
           : '') +
-        `<text x="${(barX + MINI_BAR + 8).toFixed(1)}" y="19" class="mval">${value}</text>` +
+        `<text x="${(barX + (showBar ? MINI_BAR + 8 : 0)).toFixed(1)}" y="19" class="mval">${value}</text>` +
         `</g>`,
     )
     x += w + gap
@@ -509,6 +549,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     {
       id: 'c',
       label: t.context,
+      short: t.short.context,
       sub: to?.contextTokens !== undefined ? `${tokensText(to.contextTokens)} / ${tokensText(to.contextWindow)}` : t.waitingReply,
       detail: to?.contextTokens !== undefined ? t.tokens(grouped(to.contextTokens)) : t.waitingReply,
       title: to?.contextTokens !== undefined ? `${t.context} ${pct(to.contextPercent)} · ${grouped(to.contextTokens)} / ${grouped(to.contextWindow)} tokens` : `${t.context}: ${t.waitingReply}`,
@@ -518,6 +559,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     {
       id: 's',
       label: t.session,
+      short: t.short.session,
       sub: resetText(to?.session?.resetsAt, lang) || t.noData,
       detail: leftText(to?.session?.resetsAt, lang) || t.noData,
       title: to?.session ? `${t.session} ${to.session.percent}% · ${resetText(to.session.resetsAt, lang)}` : `${t.session}: ${t.noData}`,
@@ -527,6 +569,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     {
       id: 'w',
       label: t.weekly,
+      short: t.short.weekly,
       sub: resetText(to?.weekly?.resetsAt, lang) || t.noData,
       detail: leftText(to?.weekly?.resetsAt, lang) || t.noData,
       title: to?.weekly ? `${t.weekly} ${to.weekly.percent}% · ${resetText(to.weekly.resetsAt, lang)}` : `${t.weekly}: ${t.noData}`,
@@ -538,6 +581,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
       // 命中越高越好：低于 50% 才提醒
       tier: (to?.cache?.rate ?? 100) < 50 ? 'warn' : 'ok',
       label: t.cache,
+      short: t.short.cache,
       sub: to?.cache ? t.cacheRead(tokensText(to.cache.read)) : t.waitingReply,
       detail: to?.cache ? t.cacheTurn(pct(to.cache.turnRate)) : t.waitingReply,
       title: to?.cache ? t.cacheTitle(to.cache.rate, grouped(to.cache.read), grouped(to.cache.write), grouped(to.cache.fresh)) : `${t.cache}: ${t.waitingReply}`,
@@ -551,11 +595,12 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
-  const widths = gauges.map(contentWidth)
-  const gap = Math.max(14, (width - 2 * CLAWD_X - CLAWD_W - widths.reduce((a, b) => a + b, 0)) / gauges.length)
+  const layout = pickLayout(gauges, width)
+  const widths = gauges.map(g => blockWidth(g, layout))
+  const gap = Math.max(MIN_GAP[layout], (width - 2 * CLAWD_X - CLAWD_W - widths.reduce((a, b) => a + b, 0)) / gauges.length)
   const xs: number[] = []
   widths.reduce((x, w) => (xs.push(x), x + w + gap), CLAWD_X + CLAWD_W + gap)
-  const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css)).join('')
+  const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout)).join('')
   // 分隔线放在两块之间那段间距的正中间
   const seps = [1, 2, 3]
     .map(i => {
