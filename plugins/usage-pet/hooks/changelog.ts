@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.3',
+    notes: {
+      zh: ['修复：展开时点「压缩上下文」胶囊没反应（点击区域中间有缝）'],
+      en: ['Fix: clicking the Compact pill in the expanded band did nothing (gaps in the click area)'],
+    },
+  },
+  {
     version: '1.5.2',
     notes: {
       zh: ['修复：窄窗口时点圆环右上角的橙点压缩不了；现在点上下文那一块的任何位置都可以'],

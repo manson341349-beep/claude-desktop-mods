@@ -448,11 +448,12 @@ export const register: Register = (on, options) => {
                 top={0}
                 bottom={0}
                 flexDirection="column"
-                justifyContent={isMini ? 'center' : 'space-between'}
+                justifyContent={isMini ? 'center' : 'flex-start'}
                 alignItems="stretch"
               >
-                {/* 透明按钮只有一行高：展开时上中下叠三个，把整块盖满（窄排法的橙点在圆环右上角，只盖中间会点不到） */}
-                {(isMini ? ['compact'] : ['compact', 'compact-mid', 'compact-low']).map(key => (
+                {/* 透明按钮只有一行高：展开时从上往下紧挨着叠四个，中间不留缝，把整块盖满
+                    （1.5.2 用 space-between 叠三个，按钮之间有缝，胶囊正好落在缝里点不到） */}
+                {(isMini ? ['compact'] : ['compact', 'compact-2', 'compact-3', 'compact-4']).map(key => (
                   <Button key={key} label=" " plain onPress={() => void pressCompact($, lang)} />
                 ))}
               </Box>
