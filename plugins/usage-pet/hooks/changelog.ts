@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.0',
+    notes: {
+      zh: ['一键压缩上下文：上下文到 60% 时 ▼ 旁边出现「压缩」，点两下就压缩（和 /compact 一样），Claude 干活时不显示'],
+      en: ['One-click compact: at 60% context a Compact button appears next to ▼; click it twice to compact (same as /compact). Hidden while Claude works'],
+    },
+  },
+  {
     version: '1.4.6',
     notes: {
       zh: ['战报卡改存到「图片/Clawd Reports」，不再堆在桌面；只留最近 20 张，更早的自动移进废纸篓'],

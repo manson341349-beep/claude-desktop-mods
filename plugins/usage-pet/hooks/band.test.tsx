@@ -537,3 +537,64 @@ test('窗口变窄：信息栏宽度跟着收，加上右边按钮也不超过�
     expect(Math.max(...items)).toBeLessThanOrEqual(width - 14 + 0.6)
   }
 })
+
+// ───────── 一键压缩 ─────────
+const compactHarness = (on: Parameters<Parameters<typeof test>[2]>[1]) => {
+  const calls: unknown[] = []
+  const toasts: string[] = []
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('session.compact', ($, e) => {
+    calls.push(e)
+    return { messages: [{ role: 'user', text: 'summary of the conversation', toolUses: [] }] } as never
+  })
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  return { calls, toasts }
+}
+const compactLabel = async (ui: { findAll: (q: { type: string; key?: string }) => Promise<{ text?: string }[]> }) =>
+  (await ui.findAll({ type: 'Button', key: 'compact' }))[0]?.text
+
+test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，点一下变「Confirm?」不执行，再点才压缩', EN, async ($, on) => {
+  const clock = mock.clock(on)
+  const { calls, toasts } = compactHarness(on)
+  await $.session.measure(measure(42, 8, 63))
+  const low = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  expect(await compactLabel(low)).toBeUndefined()
+
+  await $.session.measure(measure(63, 8, 63))
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  expect(await compactLabel(ui)).toBe('Compact')
+  await ui.press({ key: 'compact' })
+  expect(await compactLabel(ui)).toBe('Confirm?')
+  expect(calls).toHaveLength(0)
+  await ui.press({ key: 'compact' })
+  expect(calls).toHaveLength(1)
+  expect(toasts).toContain('Clawd: context compacted')
+  expect(await compactLabel(ui)).toBe('Compact')
+  // 信息栏给压缩按钮让出宽度：SVG + 压缩按钮（96）+ ▼（44）不超过可用宽度
+  const svg = await svgOf(ui)
+  expect(Number(svg.props?.width) + 96 + 44).toBeLessThanOrEqual(140 * 8 - 8)
+  void clock
+})
+
+test('一键压缩：点了一下 3 秒内没确认就复原，之后单点一下不会压缩', EN, async ($, on) => {
+  const clock = mock.clock(on)
+  const { calls } = compactHarness(on)
+  await $.session.measure(measure(70, 8, 63))
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  await ui.press({ key: 'compact' })
+  expect(await compactLabel(ui)).toBe('Confirm?')
+  await clock.advance(3100)
+  expect(await compactLabel(ui)).toBe('Compact')
+  await ui.press({ key: 'compact' })
+  expect(calls).toHaveLength(0)
+})
+
+test('一键压缩：Claude 正在干活时不出现（引擎在一轮进行中会拒绝压缩）', EN, async ($, on) => {
+  compactHarness(on)
+  await $.session.measure(measure(80, 8, 63))
+  const ui = await $.ui.mount({ ...BAND(true), surface: 'desktop' })
+  expect(await compactLabel(ui)).toBeUndefined()
+})

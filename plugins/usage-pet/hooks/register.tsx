@@ -23,6 +23,13 @@ const petAtom = atom({ plugin: 'usage-pet', key: 'pet' } as const, NEW_PET as Pe
 const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], output: 0, earned: [] }
 const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
 const PET_KEY = 'pet'
+// 一键压缩：上下文 ≥ COMPACT_AT% 才在 ▼ 旁边出现；第一下变成「确认压缩？」，CONFIRM_MS 内再点才真的压缩
+const compactAtom = atom({ plugin: 'usage-pet', key: 'compact' } as const, 'idle' as 'idle' | 'armed' | 'running')
+const COMPACT_AT = 60
+const CONFIRM_MS = 3000
+// 压缩按钮占的宽度（像素），按「确认压缩？」这个最长的标签留
+const COMPACT_W = 96
+let armToken = 0
 const CARD_PANE = 'clawd-card'
 // 改文件的工具：战报里「改动文件」按它们的路径去重计数
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
@@ -219,6 +226,36 @@ async function exportCard($: EngineInterface, svg: string): Promise<{ path: stri
   }
 }
 
+// 点压缩按钮：第一下只是「上膛」，3 秒内再点才执行；执行就是 /compact 那一套（轮到 Claude 干活时引擎会拒绝）
+async function pressCompact($: EngineInterface, lang: Lang) {
+  const state = await read($, compactAtom)
+  if (state === 'running') {
+    return
+  }
+  if (state === 'idle') {
+    const token = ++armToken
+    await update($, compactAtom, () => 'armed')
+    $.clock.after(CONFIRM_MS, () => {
+      if (token === armToken) {
+        void update($, compactAtom, s => (s === 'armed' ? 'idle' : s))
+      }
+    })
+
+    return
+  }
+  armToken++
+  await update($, compactAtom, () => 'running')
+  const t = T[lang]
+  try {
+    const res = (await $.session.compact()) as { skip?: string } | undefined
+    $.ui.toast(res && typeof res.skip === 'string' ? t.compactSkipped(res.skip) : t.compacted)
+  } catch (err) {
+    $.ui.toast(t.compactFailed(String(err).slice(0, 120)))
+  } finally {
+    await update($, compactAtom, () => 'idle')
+  }
+}
+
 export const register: Register = (on, options) => {
   const choice = (options?.language ?? 'auto') as LangChoice
 
@@ -376,7 +413,11 @@ export const register: Register = (on, options) => {
       const { Box, Button, Svg } = $.ui.resolve(e)
       // 不设大下限：以前最少 560px，窗口窄时信息栏比可用宽度还宽，按钮就被挤到下一行。
       // 窄了由 bandSvg 自己逐级收（去副标题 → 只剩圆环），按钮始终在同一行右侧
-      const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
+      // 上下文快满（≥60%）且 Claude 没在干活时，▼ 旁边多一个压缩按钮；它占的宽度从信息栏里让出来
+      const compact = await read($, compactAtom)
+      const showCompact = compact === 'running' || ((bars.to?.contextPercent ?? 0) >= COMPACT_AT && !e.props.isWorking)
+      const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W - (showCompact ? COMPACT_W : 0))
+      const t = T[lang]
       const pinned = await read($, pinnedAtom)
       const isMini = !pinned && !(await read($, expandedAtom))
       // 收起时按「展开」= 一直展开；展开时按「收起」= 立刻收起并回到自动模式
@@ -397,6 +438,14 @@ export const register: Register = (on, options) => {
             height={isMini ? H_MINI : H}
             isInteractive
           />
+          {showCompact ? (
+            <Button
+              key="compact"
+              label={compact === 'running' ? t.compacting : compact === 'armed' ? t.compactConfirm : t.compact}
+              plain
+              onPress={() => void pressCompact($, lang)}
+            />
+          ) : null}
           <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
         </Box>
       )
