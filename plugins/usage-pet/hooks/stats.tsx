@@ -1,8 +1,9 @@
 import type { ClientModule } from 'claude-code'
 
 import type { Snap } from '../types'
+import { type Lang, T, weekday } from './i18n'
 
-type Props = { snap: Snap | null }
+type Props = { snap: Snap | null; lang?: Lang }
 
 // 数值缓动：目标一变，从当前显示值滚到新值
 const DURATION = 900
@@ -27,25 +28,19 @@ function targets(snap: Snap | null): number[] {
   ]
 }
 
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-
-function resetText(resetsAt: string | undefined, now: number): string {
+function resetText(resetsAt: string | undefined, now: number, lang: Lang): string {
   if (!resetsAt) {
     return ''
   }
   const at = Date.parse(resetsAt)
   const minutes = Math.max(0, Math.round((at - now) / 60000))
-  if (minutes < 60) {
-    return `${minutes} 分钟后重置`
-  }
   if (minutes < 24 * 60) {
-    return `${Math.floor(minutes / 60)} 小时 ${minutes % 60} 分后重置`
+    return T[lang].left(minutes < 60 ? minutes : Math.floor(minutes / 60), minutes < 60 ? 'm' : 'hm', minutes % 60)
   }
   const d = new Date(at)
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 
-  return `${WEEKDAYS[d.getDay()]} ${hh}:${mm} 重置`
+  return T[lang].resetDay(weekday(lang, d.getDay()), time)
 }
 
 function tokensText(n: number): string {
@@ -96,6 +91,8 @@ const Stats: ClientModule<Props, State> = (props, surface) => {
   const [ctxPct, ctxTok, sessPct, weekPct] = box.anims.map(a => shown(a, now))
   const isMoving = box.anims.map(a => now - a.start < DURATION)
   const snap = props.snap
+  const lang = props.lang ?? 'zh'
+  const t = T[lang]
 
   const meter = (
     key: string,
@@ -125,14 +122,14 @@ const Stats: ClientModule<Props, State> = (props, surface) => {
     <Box flexDirection="row" columnGap={3}>
       {meter(
         'ctx',
-        '上下文',
+        t.context,
         ctxPct,
         snap?.contextPercent !== undefined,
         isMoving[0],
         snap?.contextTokens !== undefined ? `${tokensText(ctxTok)} / ${tokensText(snap.contextWindow)}` : '',
       )}
-      {meter('session', '5 小时额度', sessPct, snap?.session !== undefined, isMoving[2], resetText(snap?.session?.resetsAt, Date.now()))}
-      {meter('weekly', '每周额度', weekPct, snap?.weekly !== undefined, isMoving[3], resetText(snap?.weekly?.resetsAt, Date.now()))}
+      {meter('session', t.session, sessPct, snap?.session !== undefined, isMoving[2], resetText(snap?.session?.resetsAt, Date.now(), lang))}
+      {meter('weekly', t.weekly, weekPct, snap?.weekly !== undefined, isMoving[3], resetText(snap?.weekly?.resetsAt, Date.now(), lang))}
     </Box>
   )
 }

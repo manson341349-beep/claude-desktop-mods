@@ -1,4 +1,5 @@
 import type { Bars, Snap } from '../types'
+import { type Lang, T, weekday } from './i18n'
 
 // 桌面端整条（Clawd + 三个圆环）画成一张 SVG。动画全部是 SVG 内的 CSS 动画，浏览器在合成线程上按刷新率播放。
 // 桌面端任何状态变化都会重画整条、动画从头播（anthropics/claude-code#99211），
@@ -26,7 +27,6 @@ const SPRING = 'cubic-bezier(.34,1.56,.64,1)'
 // 背景透明。小窗口的配色方案和 App 不一致时，浏览器会给它垫一块不透明的底（浅色 = 白），
 // 所以在 SVG 里声明 color-scheme: dark。此前用填色 #232323 去抵消 App 的色彩转换，
 // 但转换结果随显示器色彩配置变化，换屏就对不上。
-const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 
 type Tier = 'ok' | 'warn' | 'danger'
 
@@ -42,29 +42,29 @@ function tokensText(n: number): string {
 
 const grouped = (n: number) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
-function resetText(resetsAt: string | undefined): string {
+function resetText(resetsAt: string | undefined, lang: Lang): string {
   if (!resetsAt) {
     return ''
   }
   const at = new Date(resetsAt)
   const time = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
 
-  return at.getTime() - Date.now() < 24 * 3600000 ? `${time} 重置` : `${WEEKDAYS[at.getDay()]} ${time} 重置`
+  return at.getTime() - Date.now() < 24 * 3600000 ? T[lang].reset(time) : T[lang].resetDay(weekday(lang, at.getDay()), time)
 }
 
-function leftText(resetsAt: string | undefined): string {
+function leftText(resetsAt: string | undefined, lang: Lang): string {
   if (!resetsAt) {
     return ''
   }
   const min = Math.max(0, Math.round((Date.parse(resetsAt) - Date.now()) / 60000))
   if (min < 60) {
-    return `还剩 ${min} 分钟`
+    return T[lang].left(min, 'm')
   }
   if (min < 1440) {
-    return `还剩 ${Math.floor(min / 60)} 小时 ${min % 60} 分`
+    return T[lang].left(Math.floor(min / 60), 'hm', min % 60)
   }
 
-  return `还剩 ${Math.floor(min / 1440)} 天 ${Math.floor((min % 1440) / 60)} 小时`
+  return T[lang].left(Math.floor(min / 1440), 'dh', Math.floor((min % 1440) / 60))
 }
 
 // ───────────────────────── 圆环 ─────────────────────────
@@ -210,7 +210,7 @@ function spark(cx: number, cy: number, r: number, w: number, color: string): str
 }
 
 // mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
-function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false): string {
+function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false): string {
   const eyes =
     `<g class="eyes"><g class="look">` +
     px(4, 2, 1, 2, '#231511', ' class="eye"') +
@@ -236,6 +236,11 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
     `<g class="armL">${px(0, 4, 2, 1, '#D97757')}${px(0, 5, 2, 1, '#BC6448')}</g>` +
     `<g class="armR">${px(14, 4, 2, 1, '#D97757')}${px(14, 5, 2, 1, '#BC6448')}</g>` +
     eyes +
+    `<g class="shades"><rect x="2" y="1.85" width="12" height=".45" fill="#141414"/>` +
+    `<rect x="2.9" y="1.55" width="3.5" height="2.3" rx=".45" fill="#141414"/>` +
+    `<rect x="9.6" y="1.55" width="3.5" height="2.3" rx=".45" fill="#141414"/>` +
+    `<rect x="3.4" y="1.95" width="1.2" height=".38" fill="#F6E7DC" opacity=".8"/>` +
+    `<rect x="10.1" y="1.95" width="1.2" height=".38" fill="#F6E7DC" opacity=".8"/></g>` +
     happy +
     cheeks +
     brows
@@ -290,7 +295,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
   const hopClass = didChange ? 'hop once' : isWorking ? 'hop' : 'hop idle'
 
   return (
-    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}" ` +
+    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}" ` +
     `transform="translate(${mini ? MINI_X : CLAWD_X} ${mini ? MINI_Y : CLAWD_Y}) scale(${mini ? MINI_U : U})">` +
     `<circle cx="8" cy="5" r="9.5" fill="url(#aura)" class="aura"/>` +
     `<g class="pace">` +
@@ -335,6 +340,8 @@ const STYLE =
   `.look{transition:transform .3s ${OUT};animation:look 7s ease-in-out infinite}.working .look{animation:focus 4s ease-in-out infinite}` +
   `.gauges:hover~.clawd .look{animation:none;transform:translate(1px,-.15px)}` +
   `.happy,.cheek{opacity:0;transition:opacity .18s ease}` +
+  `.shades{opacity:0;transition:opacity .18s ease}.chill .shades{opacity:1}.chill .eyes{opacity:0}` +
+  `.chill .breath{animation-duration:5s}.chill .hop.idle{animation-duration:14s}` +
   `.working .armL{animation:tap .24s ease-in-out infinite alternate}.working .armR{animation:tap .24s ease-in-out .12s infinite alternate}` +
   `.working .legA,.working .legB{opacity:0}` +
   `.pace{transform-origin:center}.mini.working .pace{animation:pace 3.2s ease-in-out infinite}` +
@@ -351,7 +358,7 @@ const STYLE =
   `.heart{opacity:0;transform-origin:center}` +
   `@media (hover:hover){.clawd:hover .hop{animation:bounce .55s cubic-bezier(.3,.7,.4,1) infinite}` +
   `.clawd:hover .shadow{animation:bshadow .55s cubic-bezier(.3,.7,.4,1) infinite}` +
-  `.clawd:hover .eyes{opacity:0}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
+  `.clawd:hover .eyes,.clawd:hover .shades{opacity:0}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
   `.clawd:hover .heart{animation:heart 1.35s ${OUT} infinite}}` +
   `#hit{cursor:pointer}` +
   // keyframes
@@ -391,7 +398,7 @@ const DEFS =
 // ───────────────────────── 整条 ─────────────────────────
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
-function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number): string {
+function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean): string {
   const items = gauges.map(g => {
     const value = g.to === undefined ? '—' : `${Math.round(g.to)}%`
     const labelW = textWidth(g.label, 11)
@@ -425,44 +432,48 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
     `<style>${STYLE}</style>` +
     DEFS +
     `<g class="gauges">${parts.join('')}</g>` +
-    clawd(isWorking, isStressed, false, true) +
+    clawd(isWorking, isStressed, false, true, isChill) +
     `</svg>`
   )
 }
 
-export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false): string {
+export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh'): string {
   const { from, to } = bars
   // $.state 存取会序列化，from/to 永远是两个对象，必须比内容
   const isChanged = JSON.stringify(from) !== JSON.stringify(to)
   const isFirst = from === null
   const isStressed = Math.max(to?.session?.percent ?? 0, to?.weekly?.percent ?? 0) >= 90
+  // 放松模式（@Joshua_WD 的点子）：缓存命中 ≥90% 且额度没告急 → 戴墨镜、呼吸变慢
+  const isChill = !isStressed && (to?.cache?.rate ?? 0) >= 90
   const css: string[] = []
 
+  const t = T[lang]
+  const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v)}%`)
   const gauges: Gauge[] = [
     {
       id: 'c',
-      label: '上下文',
-      sub: to?.contextTokens !== undefined ? `${tokensText(to.contextTokens)} / ${tokensText(to.contextWindow)}` : '等待第一次回复',
-      detail: to?.contextTokens !== undefined ? `${grouped(to.contextTokens)} tokens` : '等待第一次回复',
-      title: to?.contextTokens !== undefined ? `上下文 ${to.contextPercent ?? 0}% · ${grouped(to.contextTokens)} / ${grouped(to.contextWindow)} tokens` : '上下文：等待第一次回复',
+      label: t.context,
+      sub: to?.contextTokens !== undefined ? `${tokensText(to.contextTokens)} / ${tokensText(to.contextWindow)}` : t.waitingReply,
+      detail: to?.contextTokens !== undefined ? t.tokens(grouped(to.contextTokens)) : t.waitingReply,
+      title: to?.contextTokens !== undefined ? `${t.context} ${pct(to.contextPercent)} · ${grouped(to.contextTokens)} / ${grouped(to.contextWindow)} tokens` : `${t.context}: ${t.waitingReply}`,
       from: from?.contextPercent,
       to: to?.contextPercent,
     },
     {
       id: 's',
-      label: '5 小时额度',
-      sub: resetText(to?.session?.resetsAt) || '暂无读数',
-      detail: leftText(to?.session?.resetsAt) || '暂无读数',
-      title: to?.session ? `5 小时额度 ${to.session.percent}% · ${resetText(to.session.resetsAt)}` : '5 小时额度：暂无读数',
+      label: t.session,
+      sub: resetText(to?.session?.resetsAt, lang) || t.noData,
+      detail: leftText(to?.session?.resetsAt, lang) || t.noData,
+      title: to?.session ? `${t.session} ${to.session.percent}% · ${resetText(to.session.resetsAt, lang)}` : `${t.session}: ${t.noData}`,
       from: from?.session?.percent,
       to: to?.session?.percent,
     },
     {
       id: 'w',
-      label: '每周额度',
-      sub: resetText(to?.weekly?.resetsAt) || '暂无读数',
-      detail: leftText(to?.weekly?.resetsAt) || '暂无读数',
-      title: to?.weekly ? `每周额度 ${to.weekly.percent}% · ${resetText(to.weekly.resetsAt)}` : '每周额度：暂无读数',
+      label: t.weekly,
+      sub: resetText(to?.weekly?.resetsAt, lang) || t.noData,
+      detail: leftText(to?.weekly?.resetsAt, lang) || t.noData,
+      title: to?.weekly ? `${t.weekly} ${to.weekly.percent}% · ${resetText(to.weekly.resetsAt, lang)}` : `${t.weekly}: ${t.noData}`,
       from: from?.weekly?.percent,
       to: to?.weekly?.percent,
     },
@@ -470,21 +481,17 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
       id: 'k',
       // 命中越高越好：低于 50% 才提醒
       tier: (to?.cache?.rate ?? 100) < 50 ? 'warn' : 'ok',
-      label: '缓存命中',
-      sub: to?.cache ? `读取 ${tokensText(to.cache.read)}` : '等待第一次回复',
-      detail: to?.cache
-        ? `本轮 ${to.cache.turnRate === undefined ? '—' : `${Math.round(to.cache.turnRate)}%`} · 写入 ${tokensText(to.cache.write)}`
-        : '等待第一次回复',
-      title: to?.cache
-        ? `缓存命中 ${to.cache.rate}%（本会话）· 读取 ${grouped(to.cache.read)} · 写入 ${grouped(to.cache.write)} · 未走缓存 ${grouped(to.cache.fresh)} tokens`
-        : '缓存命中：等待第一次回复',
+      label: t.cache,
+      sub: to?.cache ? t.cacheRead(tokensText(to.cache.read)) : t.waitingReply,
+      detail: to?.cache ? t.cacheTurn(pct(to.cache.turnRate), tokensText(to.cache.write)) : t.waitingReply,
+      title: to?.cache ? t.cacheTitle(to.cache.rate, grouped(to.cache.read), grouped(to.cache.write), grouped(to.cache.fresh)) : `${t.cache}: ${t.waitingReply}`,
       from: from?.cache?.rate,
       to: to?.cache?.rate,
     },
   ]
 
   if (mini) {
-    return miniSvg(gauges, isWorking, isStressed, width)
+    return miniSvg(gauges, isWorking, isStressed, width, isChill)
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
@@ -509,16 +516,19 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     `<style>${STYLE}${css.join('')}</style>` +
     DEFS +
     `<g class="gauges">${seps}${blocks}</g>` +
-    clawd(isWorking, isStressed, clawdChanged) +
+    clawd(isWorking, isStressed, clawdChanged, false, isChill) +
     `</svg>`
   )
 }
 
-export function bandAlt(to: Snap | null, isWorking: boolean): string {
+export function bandAlt(to: Snap | null, isWorking: boolean, lang: Lang = 'zh'): string {
+  const t = T[lang]
   const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v)}%`)
+  const sep = lang === 'zh' ? '，' : ', '
 
   return (
-    `上下文 ${pct(to?.contextPercent)}，5 小时额度 ${pct(to?.session?.percent)}，每周额度 ${pct(to?.weekly?.percent)}，缓存命中 ${pct(to?.cache?.rate)}；` +
-    (isWorking ? 'Claude 正在干活' : 'Claude 在休息')
+    [`${t.context} ${pct(to?.contextPercent)}`, `${t.session} ${pct(to?.session?.percent)}`, `${t.weekly} ${pct(to?.weekly?.percent)}`, `${t.cache} ${pct(to?.cache?.rate)}`].join(sep) +
+    (lang === 'zh' ? '；' : '; ') +
+    (isWorking ? t.working : t.resting)
   )
 }

@@ -20,6 +20,6 @@ export type CacheTotals = { read: number; write: number; fresh: number; turnRate
 
 declare module 'claude-code' {
   interface PluginState {
-    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean }
+    'usage-pet': { bars: Bars; cache: CacheTotals; expanded: boolean; pinned: boolean; lang: 'zh' | 'en' }
   }
 }

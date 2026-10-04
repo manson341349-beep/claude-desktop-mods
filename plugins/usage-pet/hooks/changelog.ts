@@ -1,15 +1,30 @@
-// 更新日志：最新的放最前面。每次发布改动，在这里加一条，用户更新后第一次加载会弹出来。
+// 更新日志：最新的放最前面。每次发布改动，在这里加一条（中英各一份），用户更新后第一次加载会弹出来。
 // version 是给人看的版本号（plugin.json 故意不写 version，安装版本按提交号算）。
-export type Release = { version: string; notes: string[] }
+import type { Lang } from './i18n'
+
+export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.2.0',
+    notes: {
+      zh: ['新增英文界面：默认跟随系统语言，/config 里可以手动切换', '缓存命中 ≥90% 时 Clawd 戴上墨镜放松（点子来自 @Joshua_WD）'],
+      en: ['English UI: follows your system language, switch it in /config', 'Chill mode: cache hit ≥ 90% and Clawd puts on sunglasses (idea by @Joshua_WD)'],
+    },
+  },
+  {
     version: '1.1.0',
-    notes: ['新增更新提示：插件更新后，第一次打开会弹出这次改了什么'],
+    notes: {
+      zh: ['新增更新提示：插件更新后，第一次打开会弹出这次改了什么'],
+      en: ["What's new: after an update, the first load shows what changed"],
+    },
   },
   {
     version: '1.0.0',
-    notes: ['四个圆环：上下文、5 小时、每周、缓存命中', '自动折叠成细条，数据刷新时展开 5 秒', '▲▼ 或 /clawd 切换一直展开'],
+    notes: {
+      zh: ['四个圆环：上下文、5 小时、每周、缓存命中', '自动折叠成细条，数据刷新时展开 5 秒', '▲▼ 或 /clawd 切换一直展开'],
+      en: ['Four meters: context, 5-hour, weekly, cache hit', 'Collapses to a slim strip, expands for 5 s on refresh', '▲▼ or /clawd keeps it expanded'],
+    },
   },
 ]
 

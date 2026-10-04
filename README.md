@@ -21,7 +21,8 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **四项用量**：上下文、5 小时额度、每周额度、缓存命中率（本会话累计）。80% 变琥珀色，95% 变红；缓存命中低于 50% 才提醒
 - **自动折叠**：平时是一条 30px 的细条；每次 Claude 回答完、数据刷新时自动展开 5 秒，播完动画再收起
 - **展开时**：圆环依次扫入、数字像老虎机一样滚动、旁边飘出「+N%」
-- **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖
+- **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖；缓存命中 ≥90% 戴上墨镜放松（点子来自 [@Joshua_WD](https://x.com/Joshua_WD)）
+- **中英双语**：默认跟随系统语言；`/config` 里的 `language` 可以选 `auto` / `zh` / `en`
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
 - **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 15 秒，看过就不再弹）
@@ -51,7 +52,6 @@ claude plugin update usage-pet@claude-desktop-mods
 
 - Claude 桌面 App 的 **Code 页**，深色主题。终端版只显示数字，没有 Clawd 和圆环动画
 - Claude Code **2.1.287 起**默认支持 mod；作者在 2.1.286（macOS）上实测
-- 界面文字是中文
 - 桌面 App 目前有一个重画 bug（[anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)）：状态变化时动画会从头播；▲▼ 按钮偶尔点不动，可以用 `/clawd` 代替
 
 ### 卸载
@@ -69,12 +69,11 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Four meters**: context window, 5-hour limit, weekly limit, and cache hit rate (cumulative for the session). Amber at 80%, red at 95%; cache hit warns below 50%
 - **Auto-collapse**: a 30px strip most of the time; expands for 5 seconds whenever usage data refreshes, plays its animations, then collapses
 - **Expanded**: rings sweep in, digits roll like an odometer, `+N%` chips float up
-- **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%
+- **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%; puts on sunglasses when the cache hit rate is 90%+ (idea by [@Joshua_WD](https://x.com/Joshua_WD))
+- **English / 中文**: follows your system language by default; set `language` in `/config` to `auto`, `zh` or `en`
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
 - **What's new**: after an update, the first load shows a toast with the release notes (15 s, once)
-
-UI labels are in Chinese.
 
 ### Install
 
