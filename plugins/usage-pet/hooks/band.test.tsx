@@ -553,8 +553,13 @@ const compactHarness = (on: Parameters<Parameters<typeof test>[2]>[1]) => {
   })
   return { calls, toasts }
 }
-const compactLabel = async (ui: { findAll: (q: { type: string; key?: string }) => Promise<{ text?: string }[]> }) =>
-  (await ui.findAll({ type: 'Button', key: 'compact' }))[0]?.text
+// 上下文那块的压缩胶囊文字（画在 SVG 里）；没有透明按钮就返回 undefined
+const compactLabel = async (ui: { findAll: (q: { type: string; key?: string }) => Promise<{ text?: string; props?: Record<string, unknown> }[]> }) => {
+  const button = (await ui.findAll({ type: 'Button', key: 'compact' }))[0]
+  if (!button) return undefined
+  const src = String((await ui.findAll({ type: 'Svg' }))[0]?.props?.source)
+  return src.match(/class="ptxt">([^<]*)</)?.[1] ?? (src.includes('class="mpill"') ? '↓' : 'no pill')
+}
 
 test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，点一下变「Confirm?」不执行，再点才压缩', EN, async ($, on) => {
   const clock = mock.clock(on)
@@ -567,15 +572,23 @@ test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，�
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
   expect(await compactLabel(ui)).toBe('Compact')
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Confirm?')
+  expect(await compactLabel(ui)).toBe('Click again')
   expect(calls).toHaveLength(0)
   await ui.press({ key: 'compact' })
   expect(calls).toHaveLength(1)
   expect(toasts).toContain('Clawd: context compacted')
   expect(await compactLabel(ui)).toBe('Compact')
-  // 信息栏给压缩按钮让出宽度：SVG + 压缩按钮（96）+ ▼（44）不超过可用宽度
+  // 不再单独占位：信息栏宽度和平时一样；透明按钮叠在上下文那块的位置上
   const svg = await svgOf(ui)
-  expect(Number(svg.props?.width) + 96 + 44).toBeLessThanOrEqual(140 * 8 - 8)
+  expect(Number(svg.props?.width)).toBe(140 * 8 - 8 - 44)
+  const drawn = JSON.stringify(await ui.drawn())
+  expect(drawn).toContain('"position":"absolute"')
+  const src = String(svg.props?.source)
+  const ctx = src.match(/<rect x="([\d.]+)" y="6" width="([\d.]+)" height="52" fill="transparent"\/>/)!
+  const left = Number(drawn.match(/"left":(\d+)/)![1])
+  const cols = Number(drawn.match(/"position":"absolute"[^}]*"width":(\d+)/)?.[1] ?? drawn.match(/"width":(\d+)[^}]*"position":"absolute"/)?.[1])
+  expect(left).toBe(Math.floor(Number(ctx[1]) / 8))
+  expect(cols).toBe(Math.ceil(Number(ctx[2]) / 8))
   void clock
 })
 
@@ -585,7 +598,7 @@ test('一键压缩：点了一下 3 秒内没确认就复原，之后单点一�
   await $.session.measure(measure(70, 8, 63))
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Confirm?')
+  expect(await compactLabel(ui)).toBe('Click again')
   await clock.advance(3100)
   expect(await compactLabel(ui)).toBe('Compact')
   await ui.press({ key: 'compact' })
@@ -598,3 +611,17 @@ test('一键压缩：Claude 正在干活时不出现（引擎在一轮进行中�
   const ui = await $.ui.mount({ ...BAND(true), surface: 'desktop' })
   expect(await compactLabel(ui)).toBeUndefined()
 })
+
+test('一键压缩：收起成细条时，上下文百分比后面出现橙色 ↓，透明按钮叠在这一项上', EN, async ($, on) => {
+  const clock = mock.clock(on)
+  const { calls } = compactHarness(on)
+  await $.session.measure(measure(70, 8, 63))
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  await clock.advance(5100)
+  await ui.redraw()
+  expect(await compactLabel(ui)).toBe('↓')
+  await ui.press({ key: 'compact' })
+  await ui.press({ key: 'compact' })
+  expect(calls).toHaveLength(1)
+})
+

@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
 import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
-import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
+import { bandAlt, bandSvg, H, H_MINI, type Hit, type PetView } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
 import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T } from './i18n'
@@ -27,8 +27,6 @@ const PET_KEY = 'pet'
 const compactAtom = atom({ plugin: 'usage-pet', key: 'compact' } as const, 'idle' as 'idle' | 'armed' | 'running')
 const COMPACT_AT = 60
 const CONFIRM_MS = 3000
-// 压缩按钮占的宽度（像素），按「确认压缩？」这个最长的标签留
-const COMPACT_W = 96
 let armToken = 0
 const CARD_PANE = 'clawd-card'
 // 改文件的工具：战报里「改动文件」按它们的路径去重计数
@@ -413,11 +411,12 @@ export const register: Register = (on, options) => {
       const { Box, Button, Svg } = $.ui.resolve(e)
       // 不设大下限：以前最少 560px，窗口窄时信息栏比可用宽度还宽，按钮就被挤到下一行。
       // 窄了由 bandSvg 自己逐级收（去副标题 → 只剩圆环），按钮始终在同一行右侧
-      // 上下文快满（≥60%）且 Claude 没在干活时，▼ 旁边多一个压缩按钮；它占的宽度从信息栏里让出来
+      // 上下文快满（≥60%）且 Claude 没在干活时，上下文那块的副标题换成橙色「压缩上下文」胶囊（收起时是 ↓）。
+      // 信息栏是一张图，图里收不到点击，所以在上下文那块的位置上叠一个透明按钮接点击
       const compact = await read($, compactAtom)
       const showCompact = compact === 'running' || ((bars.to?.contextPercent ?? 0) >= COMPACT_AT && !e.props.isWorking)
-      const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W - (showCompact ? COMPACT_W : 0))
-      const t = T[lang]
+      const width = Math.max(MIN_BAND_W, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
+      const hit: Hit = { x: 0, w: 0 }
       const pinned = await read($, pinnedAtom)
       const isMini = !pinned && !(await read($, expandedAtom))
       // 收起时按「展开」= 一直展开；展开时按「收起」= 立刻收起并回到自动模式
@@ -429,23 +428,33 @@ export const register: Register = (on, options) => {
         await update($, expandedAtom, () => nowMini)
       }
 
+      const source = bandSvg(bars, e.props.isWorking, width, isMini, lang, pet, showCompact ? compact : undefined, hit)
+
       return (
         <Box flexDirection="row" alignItems="center" flexWrap="nowrap">
-          <Svg
-            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
-            alt={bandAlt(bars.to, e.props.isWorking, lang)}
-            width={width}
-            height={isMini ? H_MINI : H}
-            isInteractive
-          />
-          {showCompact ? (
-            <Button
-              key="compact"
-              label={compact === 'running' ? t.compacting : compact === 'armed' ? t.compactConfirm : t.compact}
-              plain
-              onPress={() => void pressCompact($, lang)}
+          <Box position="relative" flexDirection="row">
+            <Svg
+              source={source}
+              alt={bandAlt(bars.to, e.props.isWorking, lang)}
+              width={width}
+              height={isMini ? H_MINI : H}
+              isInteractive
             />
-          ) : null}
+            {showCompact ? (
+              <Box
+                position="absolute"
+                left={Math.floor(hit.x / PX_PER_COLUMN)}
+                width={Math.max(1, Math.ceil(hit.w / PX_PER_COLUMN))}
+                top={0}
+                bottom={0}
+                flexDirection="column"
+                justifyContent="center"
+                alignItems="stretch"
+              >
+                <Button key="compact" label=" " plain onPress={() => void pressCompact($, lang)} />
+              </Box>
+            ) : null}
+          </Box>
           <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
         </Box>
       )
