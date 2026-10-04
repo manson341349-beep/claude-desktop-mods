@@ -237,3 +237,67 @@ test('连续刷新：只认最后一次的 5 秒，早先的定时器不会提�
   await ui.redraw()
   expect((await svgOf(ui)).props?.height).toBe(30)
 })
+
+// ───────── 更新提示 ─────────
+import { CHANGELOG } from './changelog'
+
+const START = { cwd: '/tmp', surface: 'desktop' as const, isInteractive: true }
+
+async function startWith($: Parameters<Parameters<typeof test>[1]>[0], on: Parameters<Parameters<typeof test>[1]>[1], stored: Record<string, unknown>) {
+  mock.store(on, stored)
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  // 测试里没有真实会话：补上「会话开始」和「读用量」的底层应答
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  const toasts: { text: string; timeoutMs?: number }[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e)
+    return { value: undefined }
+  })
+  await $.session.start(START as never)
+
+  return toasts
+}
+
+test('更新提示：从 1.0.0 升上来，弹出新版本改了什么，记住已看过', async ($, on) => {
+  const toasts = await startWith($, on, { lastSeenVersion: '1.0.0' })
+  expect(toasts).toHaveLength(1)
+  expect(toasts[0].text).toContain(`Clawd 信息栏 ${CHANGELOG[0].version}`)
+  expect(toasts[0].text).toContain(CHANGELOG[0].notes[0])
+  expect(toasts[0].timeoutMs).toBe(15000)
+
+  // 已记下看过：再加载一次（比如 /reload-plugins）不再弹
+  await $.session.start(START as never)
+  expect(toasts).toHaveLength(1)
+})
+
+test('更新提示：已经看过最新版，不弹', async ($, on) => {
+  const toasts = await startWith($, on, { lastSeenVersion: CHANGELOG[0].version })
+  expect(toasts).toHaveLength(0)
+})
+
+test('更新提示：新装（从没看过）只介绍最新一版', async ($, on) => {
+  const toasts = await startWith($, on, {})
+  expect(toasts).toHaveLength(1)
+  expect(toasts[0].text).toContain(CHANGELOG[0].version)
+  expect(toasts[0].text).not.toContain(CHANGELOG[1].version)
+  await $.session.start(START as never)
+  expect(toasts).toHaveLength(1)
+})
+
+test('更新提示：后面的步骤出错（注册命令失败）也不影响弹窗', async ($, on) => {
+  mock.store(on, { lastSeenVersion: '1.0.0' })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
+  on('command.register', () => {
+    throw new Error('注册失败')
+  })
+  const toasts: { text: string }[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e)
+    return { value: undefined }
+  })
+  await $.session.start(START as never)
+  expect(toasts).toHaveLength(1)
+})

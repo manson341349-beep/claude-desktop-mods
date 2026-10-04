@@ -3,6 +3,7 @@ import type { EngineInterface, ModelUsage, Register, SessionContextUsage, Sessio
 
 import type { Bars, CacheStat, CacheTotals, Snap } from '../types'
 import { bandAlt, bandSvg, H, H_MINI } from './band'
+import { CHANGELOG, unseenReleases } from './changelog'
 
 const barsAtom = atom({ plugin: 'usage-pet', key: 'bars' } as const, { from: null, to: null } as Bars)
 
@@ -57,6 +58,23 @@ const PX_PER_COLUMN = 8
 
 // 桌面端任何状态变化都会重画整条、SVG 动画从头播（anthropics/claude-code#99211），
 // 所以滚动播完后把 from 收成 to，之后的重画就是静止的最终值，不会重播滚动。
+// 更新提示：$.store 跨会话保存「上次给用户看过的版本」，有没看过的就弹 toast，看过就不再弹
+const SEEN_KEY = 'lastSeenVersion'
+const WHATS_NEW_MS = 15000
+
+async function showWhatsNew($: EngineInterface) {
+  const latest = CHANGELOG[0].version
+  const lastSeen = await $.store.get(SEEN_KEY)
+  if (lastSeen === latest) {
+    return
+  }
+  // 旧的先弹、新的后弹，最新的那条落在最上面
+  for (const release of unseenReleases(lastSeen).reverse()) {
+    $.ui.toast(`🦀 Clawd 信息栏 ${release.version}：${release.notes.join(' · ')}`, { timeoutMs: WHATS_NEW_MS })
+  }
+  await $.store.set(SEEN_KEY, latest)
+}
+
 async function expandForAWhile($: EngineInterface) {
   const token = ++expandToken
   await update($, expandedAtom, () => true)
@@ -79,6 +97,13 @@ async function record($: EngineInterface, snap: Snap) {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    // 更新提示放最前：后面注册命令、读用量出错（整个 hook 会被跳过）也不会吞掉它；
+    // 它自己出错只记调试日志，不拦后面的步骤
+    try {
+      await showWhatsNew($)
+    } catch (err) {
+      $.ui.log(`usage-pet: 更新提示失败：${String(err)}`, { to: 'debug' })
+    }
     await $.command.register({
       name: 'clawd',
       description: 'Clawd 信息栏：在「一直展开」和「自动收起」之间切换',

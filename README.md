@@ -24,6 +24,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
+- **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 15 秒，看过就不再弹）
 
 ### 安装
 
@@ -38,7 +39,7 @@ claude plugin install usage-pet@claude-desktop-mods
 
 ### 更新
 
-第三方插件市场**默认不自动更新**。想自动收到新版本：在会话里打开 `/plugin` → **Marketplaces** → 选 `claude-desktop-mods` → **Enable auto-update**。之后有新版本时会提示 `Plugin updated: usage-pet · Run /reload-plugins to apply`。
+第三方插件市场**默认不自动更新**。想自动收到新版本：在会话里打开 `/plugin` → **Marketplaces** → 选 `claude-desktop-mods` → **Enable auto-update**。之后有新版本时会提示 `Plugin updated: usage-pet · Run /reload-plugins to apply`，重载后插件会弹出这次的更新内容。
 
 手动更新：
 
@@ -71,6 +72,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
+- **What's new**: after an update, the first load shows a toast with the release notes (15 s, once)
 
 UI labels are in Chinese.
 
@@ -101,6 +103,9 @@ Auto-update is **off by default** for third-party marketplaces. Turn it on in `/
 claude plugin validate plugins/usage-pet
 claude plugin test plugins/usage-pet
 ```
+
+发布改动时，在 [`plugins/usage-pet/hooks/changelog.ts`](plugins/usage-pet/hooks/changelog.ts) 最前面加一条，用户更新后会看到。
+When you ship a change, add an entry at the top of `changelog.ts`; users see it after they update.
 
 做桌面端 mod 踩过的坑：[docs/desktop-mod-notes.md](docs/desktop-mod-notes.md)
 Pitfalls we hit building a desktop mod: [docs/desktop-mod-notes.md](docs/desktop-mod-notes.md)

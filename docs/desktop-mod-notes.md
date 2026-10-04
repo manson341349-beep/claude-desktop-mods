@@ -75,3 +75,14 @@ Each item: what you see → why → what to do.
 - Third-party marketplaces don't auto-update by default; users enable it in `/plugin` → **Marketplaces**.
 - A `"version"` in `plugin.json` pins users to that version until you change the string. Leave it out to version by commit.
 - 第三方市场默认不自动更新；`plugin.json` 写死版本号会挡住更新。
+
+## 12. What's-new popups · 更新内容弹窗
+
+- Marketplace auto-update only prints `Plugin updated: <name>`. To show *what* changed, keep a changelog in the plugin, store the last version shown with `$.store` (shared by every session on the machine), and `$.ui.toast` the unseen entries on `session.start`.
+- One module can't register the same event twice — put the popup first in the existing `session.start` hook, in its own `try`, so a later failure (the whole hook is skipped) can't swallow it.
+- 插件只能对同一事件注册一次：把弹窗放在 `session.start` 最前面并单独 `try`。
+
+## 13. Test stand-ins must answer `{ value }` · 测试替身要返回 `{ value }`
+
+- In `claude plugin test`, a test's `on('command.register' | 'session.usage' | 'ui.toast', …)` stand-in must return `{ value: … }` or `{ deny: … }`. A bare object makes the engine skip the stand-in, the plugin's call then fails with `no implementation for …`, and the plugin's hook is skipped — tests can pass or fail for the wrong reason.
+- 测试里冒充 API 调用的 hook 要返回 `{ value }`，否则会被跳过，测试可能「为错误的原因」通过。
