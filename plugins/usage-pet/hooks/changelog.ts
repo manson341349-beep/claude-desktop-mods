@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.4',
+    notes: {
+      zh: ['修复：鼠标放到圆环上换出的详情文字会压到分隔线、或被右边裁掉'],
+      en: ['Fix: the details shown when hovering a meter could run into the divider or get cut off on the right'],
+    },
+  },
+  {
     version: '1.4.3',
     notes: {
       zh: ['更新内容、升级、成就的提示停留时间加长到 1 分钟（App 允许的上限），鼠标放上去会停住，点一下就关'],

@@ -146,8 +146,8 @@ test('排布均匀：左右留白相等，Clawd 与四块之间五段间距相�
   for (const g of gaps) expect(near(g, gaps[0])).toBe(true)
   // 右边留白 = 左边留白（22）
   expect(near(1068 - (blocks[3][0] + blocks[3][1]), 22)).toBe(true)
-  // 各块宽度跟着文字走，不再强行等宽
-  expect(blocks[2][1] > blocks[0][1]).toBe(true)
+  // 各块宽度跟着文字走，不再强行等宽（上下文按悬停详情「84,000 tokens」留宽，比 5 小时额度那块宽）
+  expect(blocks[0][1] > blocks[1][1]).toBe(true)
 })
 
 test('100% 放进圆环：三位数去掉 %、换小字号', ZH, async ($, on) => {
@@ -484,3 +484,20 @@ test('更新提示：App 重启时会话先启动、窗口还没连上，先不�
   expect(toasts).toHaveLength(1)
 })
 
+
+test('悬停换上的详情（如「84,000 tokens」）比副标题长时，这一块按详情留宽，不压分隔线、不出右边界', EN, async ($, on) => {
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('turn.complete', ($, e) => ({ text: '', usage: e.usage }))
+  await $.session.measure(measure(42, 8, 63))
+  await $.turn.complete(turn(990000, 140000, 5000))
+  const src = String((await svgOf(await $.ui.mount({ ...BAND(false), surface: 'desktop' }))).props?.source)
+  const blocks = [...src.matchAll(/<rect x="([\d.]+)" y="6" width="([\d.]+)" height="52" fill="transparent"\/>/g)].map(m => [Number(m[1]), Number(m[2])])
+  const details = [...src.matchAll(/class="sub2">([^<]*)</g)].map(m => m[1])
+  expect(blocks).toHaveLength(4)
+  expect(details).toHaveLength(4)
+  expect(details[0]).toBe('84,000 tokens')
+  // 文字区 = 块宽 − 圆环和间隔（2R + 4 + 10 = 44）；下限按每字 0.5 个字号估（与插件的测宽函数无关）
+  details.forEach((d, i) => expect(blocks[i][1] - 44).toBeGreaterThanOrEqual(d.length * 10.5 * 0.5))
+  // 最后一块的右边不超过信息栏宽度（右边留白 22）
+  expect(blocks[3][0] + blocks[3][1]).toBeLessThanOrEqual(1068 - 22 + 0.6)
+})

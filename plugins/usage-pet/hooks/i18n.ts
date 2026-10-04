@@ -36,7 +36,8 @@ export const T = {
       unit === 'm' ? `还剩 ${n} 分钟` : unit === 'hm' ? `还剩 ${n} 小时 ${n2} 分` : `还剩 ${n} 天 ${n2} 小时`,
     tokens: (n: string) => `${n} tokens`,
     cacheRead: (n: string) => `读取 ${n}`,
-    cacheTurn: (rate: string, written: string) => `本轮 ${rate} · 写入 ${written}`,
+    // 写入量在悬停提示（cacheTitle）里，这里只放本轮命中，免得这一块被撑宽
+    cacheTurn: (rate: string) => `本轮 ${rate}`,
     cacheTitle: (rate: number, read: string, write: string, fresh: string) =>
       `缓存命中 ${rate}%（本会话）· 读取 ${read} · 写入 ${write} · 未走缓存 ${fresh} tokens`,
     working: 'Claude 正在干活',
@@ -91,7 +92,7 @@ export const T = {
       unit === 'm' ? `${n} min left` : unit === 'hm' ? `${n} h ${n2} m left` : `${n} d ${n2} h left`,
     tokens: (n: string) => `${n} tokens`,
     cacheRead: (n: string) => `Read ${n}`,
-    cacheTurn: (rate: string, written: string) => `This turn ${rate} · wrote ${written}`,
+    cacheTurn: (rate: string) => `This turn ${rate}`,
     cacheTitle: (rate: number, read: string, write: string, fresh: string) =>
       `Cache hit ${rate}% (this session) · read ${read} · wrote ${write} · uncached ${fresh} tokens`,
     working: 'Claude is working',

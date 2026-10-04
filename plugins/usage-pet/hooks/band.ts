@@ -93,8 +93,9 @@ function textWidth(text: string, size: number): number {
   return w
 }
 
-// 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题和副标题里较长的那行
-const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5))
+// 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题、副标题、悬停时换上的详情三行里最长的那行
+// （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
+const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
 
 type Gauge = {
   tier?: Tier
@@ -538,7 +539,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
       tier: (to?.cache?.rate ?? 100) < 50 ? 'warn' : 'ok',
       label: t.cache,
       sub: to?.cache ? t.cacheRead(tokensText(to.cache.read)) : t.waitingReply,
-      detail: to?.cache ? t.cacheTurn(pct(to.cache.turnRate), tokensText(to.cache.write)) : t.waitingReply,
+      detail: to?.cache ? t.cacheTurn(pct(to.cache.turnRate)) : t.waitingReply,
       title: to?.cache ? t.cacheTitle(to.cache.rate, grouped(to.cache.read), grouped(to.cache.write), grouped(to.cache.fresh)) : `${t.cache}: ${t.waitingReply}`,
       from: from?.cache?.rate,
       to: to?.cache?.rate,
