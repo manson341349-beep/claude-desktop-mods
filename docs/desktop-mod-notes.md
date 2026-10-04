@@ -24,9 +24,10 @@ Each item: what you see → why → what to do.
 
 - **You see**: a visible rectangle behind the SVG; a transparent SVG shows white.
 - **Why**: the frame gets an opaque (white) backdrop when its color scheme differs from the app's. And the app color-converts the frame: `#1B1B1B` rendered as `#151515`, `#D97757` as `#CE6145` — the shift depends on the display, so painting a "matching" fill only works on one screen.
-- **Do**: paint no background and declare dark on the SVG root:
-  `<svg … style="color-scheme:dark;background:transparent">`
-- 不要铺底色去「对颜色」（转换结果随显示器变），在 SVG 上声明 `color-scheme:dark`，背景就是透明的。
+- **Do**: paint no background and declare both schemes on the SVG root and `:root`:
+  `<svg … style="color-scheme:light dark;background:transparent">`
+  The frame then follows the app's appearance (light, dark or match system), so the two always agree and the backdrop stays transparent. Put the light palette in `@media (prefers-color-scheme:light){…}`: inside the frame it reflects the app's appearance, not the OS. No API tells a hook the theme; this is the way. Verified in the app on 2.1.286, both appearances.
+- 不要铺底色去「对颜色」（转换结果随显示器变）。在 SVG 上声明 `color-scheme:light dark`：小窗口跟着 App 外观走，两边一致就不会垫底；浅色配色写在 `prefers-color-scheme:light` 里（它反映的是 App 的外观，不是系统的）。插件接口拿不到主题，只能这样。2.1.286 上浅色、深色都实测过。
 
 ## 4. Animations restart on every redraw · 每次重画动画都从头播
 
