@@ -6,10 +6,10 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
-    version: '1.4.2',
+    version: '1.4.3',
     notes: {
-      zh: ['更新内容、升级、成就改成挂在信息栏上方的提示条，不会自己消失，点右边的 × 才关'],
-      en: ['Release notes, level-ups and achievements now stay above the band until you close them with ×'],
+      zh: ['更新内容、升级、成就的提示停留时间加长到 1 分钟（App 允许的上限），鼠标放上去会停住，点一下就关'],
+      en: ['Release notes, level-ups and achievements now stay for a full minute (the most the app allows); hover to hold, click to close'],
     },
   },
   {

@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
-import type { Bars, CacheStat, CacheTotals, Notice, Pet, Report, Snap } from '../types'
+import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
 import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
@@ -23,9 +23,6 @@ const petAtom = atom({ plugin: 'usage-pet', key: 'pet' } as const, NEW_PET as Pe
 const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], output: 0, earned: [] }
 const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
 const PET_KEY = 'pet'
-// 提示条：toast 几秒就消失、不留意就错过，所以更新内容 / 升级 / 成就都放在信息栏上方，点 × 才关
-const noticesAtom = atom({ plugin: 'usage-pet', key: 'notices' } as const, [] as Notice[])
-const WHATS_NEW_ID = 'whats-new'
 const CARD_PANE = 'clawd-card'
 // 改文件的工具：战报里「改动文件」按它们的路径去重计数
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit'])
@@ -75,8 +72,11 @@ const PX_PER_COLUMN = 8
 
 // 桌面端任何状态变化都会重画整条、SVG 动画从头播（anthropics/claude-code#99211），
 // 所以滚动播完后把 from 收成 to，之后的重画就是静止的最终值，不会重播滚动。
-// 更新提示：$.store 跨会话保存「上次看过的版本」。有没看过的就挂一条提示，用户点 × 才记成看过
+// 更新提示：$.store 跨会话保存「上次给用户看过的版本」，有没看过的就弹 toast，看过就不再弹
 const SEEN_KEY = 'lastSeenVersion'
+// 提示（更新内容、升级、成就）停到上限 60 秒：toast 只能设停留时长（App 限定 1–60000 ms，超出整条丢弃），
+// 位置由 App 定（对话区右上角）；鼠标放上去会停住，点一下就关
+const STICKY_MS = 60000
 
 // 跟随系统语言：环境变量 → macOS 系统语言列表 → JS 运行时默认语言 → 英文
 // （桌面 App 启动的会话里 LANG 往往是空的，所以 macOS 要去读 AppleLanguages）
@@ -110,27 +110,19 @@ async function langOf($: EngineInterface, choice: LangChoice): Promise<Lang> {
   return choice === 'zh' || choice === 'en' ? choice : read($, langAtom)
 }
 
-// 挂一条提示（同 id 的换成新的），最新的在最上面
-async function pushNotice($: EngineInterface, notice: Notice) {
-  await update($, noticesAtom, list => [notice, ...list.filter(n => n.id !== notice.id)])
-}
-
-// 点 ×：收掉这一条；更新内容那条，这时才记成「看过」
-// （此前一弹就记看过：App 重启时窗口还没连上，提示没人看到却被记成看过，1.4.0 就这样被吞了）
-async function dismissNotice($: EngineInterface, id: string) {
-  await update($, noticesAtom, list => list.filter(n => n.id !== id))
-  if (id === WHATS_NEW_ID) {
-    await $.store.set(SEEN_KEY, CHANGELOG[0].version)
-  }
-}
-
+// 只在有界面连着的时候弹，弹了才记「看过」：App 重启时会话先启动、窗口后连上，
+// 那时弹的提示没人看得到，却会被记成看过（1.4.0 就这样被吞了）。没连上就等 session.attach 再弹
 async function showWhatsNew($: EngineInterface, lang: Lang) {
+  const latest = CHANGELOG[0].version
   const lastSeen = await $.store.get(SEEN_KEY)
-  if (lastSeen === CHANGELOG[0].version) {
+  if (lastSeen === latest || (await $.session.surfaces()).length === 0) {
     return
   }
-  const lines = unseenReleases(lastSeen).map(release => T[lang].whatsNew(release.version) + release.notes[lang].join(' · '))
-  await pushNotice($, { id: WHATS_NEW_ID, lines })
+  // 旧的先弹、新的后弹，最新的那条落在最上面
+  for (const release of unseenReleases(lastSeen).reverse()) {
+    $.ui.toast(T[lang].whatsNew(release.version) + release.notes[lang].join(' · '), { timeoutMs: STICKY_MS })
+  }
+  await $.store.set(SEEN_KEY, latest)
 }
 
 async function expandForAWhile($: EngineInterface) {
@@ -169,10 +161,10 @@ async function growPet($: EngineInterface, rate: number | undefined, lang: Lang)
   const t = T[lang]
   for (const ev of events) {
     if (ev.kind === 'level') {
-      await pushNotice($, { id: `level-${ev.level}`, lines: [t.levelUp(ev.level, ev.gear ? t.gear[ev.gear] : undefined)] })
+      $.ui.toast(t.levelUp(ev.level, ev.gear ? t.gear[ev.gear] : undefined), { timeoutMs: STICKY_MS })
     } else {
       const [name, how] = t.achievement[ev.id]
-      await pushNotice($, { id: `achievement-${ev.id}`, lines: [t.unlocked(name, how)] })
+      $.ui.toast(t.unlocked(name, how), { timeoutMs: STICKY_MS })
       await update($, reportAtom, r => ({ ...r, earned: [...r.earned, ev.id] }))
     }
   }
@@ -269,6 +261,18 @@ export const register: Register = (on, options) => {
     return next(e)
   })
 
+  // 窗口连上（App 重启后窗口晚于会话启动）：补弹更新提示
+  on('session.attach', async ($, e, next) => {
+    const attached = await next(e)
+    try {
+      await showWhatsNew($, await langOf($, choice))
+    } catch (err) {
+      $.ui.log(`usage-pet: 更新提示失败：${String(err)}`, { to: 'debug' })
+    }
+
+    return attached
+  })
+
   // 每轮结束累计缓存 token（只算主循环，子代理有自己的缓存）
   on('turn.complete', async ($, e, next) => {
     const u = e.usage
@@ -358,11 +362,10 @@ export const register: Register = (on, options) => {
     const bars = await read($, barsAtom)
     const lang = await langOf($, choice)
     const pet = petView(await read($, petAtom), lang)
-    const notices = await read($, noticesAtom)
 
     // 桌面端的 Client 在 2.1.286 上一律 10 秒超时（缺 CSP nonce，同见 #99211），所以桌面只用 Svg
     if (e.surface === 'desktop') {
-      const { Box, Button, Svg, Text } = $.ui.resolve(e)
+      const { Box, Button, Svg } = $.ui.resolve(e)
       const width = Math.max(560, e.props.bodyColumns * PX_PER_COLUMN - 8 - BUTTON_W)
       const pinned = await read($, pinnedAtom)
       const isMini = !pinned && !(await read($, expandedAtom))
@@ -376,46 +379,24 @@ export const register: Register = (on, options) => {
       }
 
       return (
-        <Box flexDirection="column">
-          {notices.map(n => (
-            <Box key={`notice:${n.id}`} flexDirection="row" alignItems="center" paddingLeft={2}>
-              <Box flexDirection="column" flexGrow={1}>
-                {n.lines.map(line => (
-                  <Text>{line}</Text>
-                ))}
-              </Box>
-              <Button key={`dismiss:${n.id}`} label="×" plain onPress={() => void dismissNotice($, n.id)} />
-            </Box>
-          ))}
-          <Box flexDirection="row" alignItems="center">
-            <Svg
-              source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
-              alt={bandAlt(bars.to, e.props.isWorking, lang)}
-              width={width}
-              height={isMini ? H_MINI : H}
-              isInteractive
-            />
-            <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
-          </Box>
+        <Box flexDirection="row" alignItems="center">
+          <Svg
+            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
+            alt={bandAlt(bars.to, e.props.isWorking, lang)}
+            width={width}
+            height={isMini ? H_MINI : H}
+            isInteractive
+          />
+          <Button key="toggle" label={isMini ? ICON_EXPAND : ICON_COLLAPSE} plain onPress={() => void toggle()} />
         </Box>
       )
     }
 
     if (e.surface === 'terminal') {
-      const { Box, Button, Client, Text } = $.ui.resolve(e)
+      const { Box, Client } = $.ui.resolve(e)
 
       return (
-        <Box flexDirection="column" paddingX={1}>
-          {notices.map(n => (
-            <Box key={`notice:${n.id}`} flexDirection="row">
-              <Box flexDirection="column" flexGrow={1}>
-                {n.lines.map(line => (
-                  <Text>{line}</Text>
-                ))}
-              </Box>
-              <Button key={`dismiss:${n.id}`} label="×" plain onPress={() => void dismissNotice($, n.id)} />
-            </Box>
-          ))}
+        <Box paddingX={1}>
           <Client key="stats" module="./stats.tsx" props={{ snap: bars.to, lang }} flexGrow={1} />
         </Box>
       )

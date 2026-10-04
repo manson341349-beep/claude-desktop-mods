@@ -79,14 +79,16 @@ async function start($: Harness[0], on: Harness[1], stored: Record<string, unkno
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('turn.complete', ($, e) => ({ text: '', usage: e.usage }))
   const toasts: string[] = []
+  const timeouts: (number | undefined)[] = []
   on('ui.toast', ($, e) => {
     toasts.push(e.text)
+    timeouts.push(e.timeoutMs)
     return { value: undefined }
   })
   beneath?.(on)
   await $.session.start(START as never)
 
-  return { store, toasts }
+  return { store, toasts, timeouts }
 }
 
 const turn = (read: number, write: number, fresh: number) => ({
@@ -99,28 +101,26 @@ const turn = (read: number, write: number, fresh: number) => ({
 })
 
 test('答完一轮：经验写回 store，升级弹提示，信息栏上的 Clawd 戴上小芽、悬停显示等级', ZH, async ($, on) => {
-  const { toasts } = await start($, on, { pet: { xp: 95, turns: 9, streak: 1, lastDay: '2000-01-01', achievements: [] } })
+  const { toasts, timeouts } = await start($, on, { pet: { xp: 95, turns: 9, streak: 1, lastDay: '2000-01-01', achievements: [] } })
   await $.turn.complete(turn(50, 0, 50))
 
   // mock.store 存的是副本：经验和回合数看信息栏上的悬停提示（经验 95 + 10 + 每天第一轮 20 = 125）
-  expect(toasts).toEqual([])
+  expect(toasts.some(t => t.includes('Clawd 升到 Lv.2') && t.includes('头顶小芽'))).toBe(true)
+  // 升级 / 成就提示也停到上限 60 秒
+  expect(timeouts.length).toBeGreaterThan(0)
+  expect(timeouts.every(ms => ms === 60000)).toBe(true)
 
-  // 升级提示挂在信息栏上方（点 × 才关），不是几秒就没的 toast
   const ui = await $.ui.mount(BAND)
-  const lines = (await ui.findAll({ type: 'Text' })).map(t => String(t.text))
-  expect(lines.some(t => t.includes('Clawd 升到 Lv.2') && t.includes('头顶小芽'))).toBe(true)
-  await ui.press({ key: 'dismiss:level-2' })
-  expect((await ui.findAll({ type: 'Text' })).map(t => String(t.text)).some(t => t.includes('升到'))).toBe(false)
   const src = String((await ui.findAll({ type: 'Svg' }))[0].props?.source)
   expect(src).toContain('#7BC163')
   expect(src).toContain('<title>Clawd Lv.2 · 经验 125 / 300')
 })
 
 test('子代理的回合不涨经验', ZH, async ($, on) => {
-  await start($, on, { pet: { xp: 95, turns: 0, streak: 0, achievements: [] } })
+  const { toasts } = await start($, on, { pet: { xp: 95, turns: 0, streak: 0, achievements: [] } })
   await $.turn.complete({ ...turn(50, 0, 50), agentId: 'sub-1' })
+  expect(toasts.filter(t => t.includes('升到'))).toEqual([])
   const ui = await $.ui.mount(BAND)
-  expect((await ui.findAll({ type: 'Text' })).length).toBe(0)
   expect(String((await ui.findAll({ type: 'Svg' }))[0].props?.source)).toContain('<title>Clawd Lv.1 · 经验 95 / 100')
 })
 
