@@ -570,33 +570,35 @@ test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，�
 
   await $.session.measure(measure(63, 8, 63))
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
-  expect(await compactLabel(ui)).toBe('Compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Click again')
+  expect(await compactLabel(ui)).toBe('Click Clawd again')
   expect(calls).toHaveLength(0)
   await ui.press({ key: 'compact' })
   expect(calls).toHaveLength(1)
   expect(toasts).toContain('Clawd: context compacted')
-  expect(await compactLabel(ui)).toBe('Compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
   // 不再单独占位：信息栏宽度和平时一样；透明按钮叠在上下文那块的位置上
   // 展开时三个透明按钮上中下盖满整块，点哪一个都一样
   for (const key of ['compact-2', 'compact-3', 'compact-4']) expect(await ui.find({ type: 'Button', key })).toBeDefined()
   // 紧挨着叠（不是 space-between 撑开留缝）
   expect(JSON.stringify(await ui.drawn())).toContain('"justifyContent":"flex-start"')
   await ui.press({ key: 'compact-4' })
-  expect(await compactLabel(ui)).toBe('Click again')
+  expect(await compactLabel(ui)).toBe('Click Clawd again')
   await ui.press({ key: 'compact-3' })
   expect(calls).toHaveLength(2)
   const svg = await svgOf(ui)
   expect(Number(svg.props?.width)).toBe(140 * 8 - 8 - 44)
   const drawn = JSON.stringify(await ui.drawn())
   expect(drawn).toContain('"position":"absolute"')
-  const src = String(svg.props?.source)
-  const ctx = src.match(/<rect x="([\d.]+)" y="6" width="([\d.]+)" height="52" fill="transparent"\/>/)!
+  // 透明按钮叠在 Clawd 身上（Clawd 在 22–86px，左右各放宽 4px），高度用 100% 撑满整条
   const left = Number(drawn.match(/"left":(\d+)/)![1])
   const cols = Number(drawn.match(/"position":"absolute"[^}]*"width":(\d+)/)?.[1] ?? drawn.match(/"width":(\d+)[^}]*"position":"absolute"/)?.[1])
-  expect(left).toBe(Math.floor(Number(ctx[1]) / 8))
-  expect(cols).toBe(Math.ceil(Number(ctx[2]) / 8))
+  expect(left).toBe(Math.floor(18 / 8))
+  expect(cols).toBe(Math.ceil(72 / 8))
+  expect(drawn).toContain('"height":"100%"')
+  // Clawd 身后的光晕在呼吸，提示可以点
+  expect(String(svg.props?.source)).toMatch(/class="clawd[^"]* compactable idle"/)
   void clock
 })
 
@@ -606,9 +608,9 @@ test('一键压缩：点了一下 3 秒内没确认就复原，之后单点一�
   await $.session.measure(measure(70, 8, 63))
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Click again')
+  expect(await compactLabel(ui)).toBe('Click Clawd again')
   await clock.advance(3100)
-  expect(await compactLabel(ui)).toBe('Compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
   await ui.press({ key: 'compact' })
   expect(calls).toHaveLength(0)
 })

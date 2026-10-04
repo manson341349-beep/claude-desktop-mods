@@ -328,7 +328,7 @@ export function clawdBody(isStressed: boolean, level = 1): string {
 }
 
 // mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
-function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView): string {
+function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView, compact?: CompactState): string {
   const body = clawdBody(isStressed, pet?.level)
   // 头上戴了东西，干活时的小火花挪到头的左边，不跟帽子打架
   const sparkAt = gearOf(pet?.level ?? 1).head ? '-1.2 -1.2' : '8 -2.6'
@@ -383,7 +383,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
   const hopClass = didChange ? 'hop once' : isWorking ? 'hop' : 'hop idle'
 
   return (
-    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}" ` +
+    `<g class="clawd${isWorking ? ' working' : ''}${isStressed ? ' stressed' : ''}${mini ? ' mini' : ''}${isChill ? ' chill' : ''}${compact ? ` compactable ${compact}` : ''}" ` +
     `transform="translate(${mini ? MINI_X : CLAWD_X} ${mini ? MINI_Y : CLAWD_Y}) scale(${mini ? MINI_U : U})">` +
     (pet ? `<title>${pet.title}</title>` : '') +
     `<circle cx="8" cy="5" r="9.5" fill="url(#aura)" class="aura"/>` +
@@ -448,6 +448,9 @@ const STYLE =
   `.glyph{font-size:2.3px;font-weight:700;fill:#F0EEE6;opacity:0;animation:float 2.4s ${OUT} infinite}` +
   `.spark-spin{transform-origin:center;animation:spin 2.2s linear infinite}.spark-pulse{transform-origin:center;animation:pulse 1.1s ease-in-out infinite}` +
   `.aura{opacity:0;transform-origin:center}.working .aura{animation:aura 2.4s ease-in-out infinite}` +
+  // 可以点 Clawd 压缩时，身后的光晕慢慢呼吸；点了一下（等第二下）光晕变亮变快
+  `.compactable .aura{animation:aura 2.4s ease-in-out infinite}.compactable.armed .aura{animation:armed .7s ease-in-out infinite}` +
+  `@keyframes armed{0%,100%{opacity:.45;transform:scale(1)}50%{opacity:.9;transform:scale(1.12)}}` +
   `.stressed .tremble{animation:tremble .16s linear infinite}.sweat{animation:drip 1.5s ease-in infinite}` +
   `.heart{opacity:0;transform-origin:center}` +
   `@media (hover:hover){.clawd:hover .hop{animation:bounce .55s cubic-bezier(.3,.7,.4,1) infinite}` +
@@ -503,7 +506,7 @@ const DEFS =
 // ───────────────────────── 整条 ─────────────────────────
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
-function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView, hit?: Hit): string {
+function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView, hit?: Hit, compact?: CompactState): string {
   // 窄窗口同样逐级收：标签 + 细条 + 百分比 → 标签 + 百分比 → 短标签 + 百分比 → 只剩百分比（完整标签在悬停提示里）
   const measure = (showBar: boolean, showLabel: boolean, isShort = false) =>
     gauges.map(g => {
@@ -539,10 +542,6 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
         (g.pill ? `<text x="${(x + w - 10).toFixed(1)}" y="19" class="mpill">↓</text>` : '') +
         `</g>`,
     )
-    if (hit && g.id === 'c') {
-      hit.x = x
-      hit.w = w
-    }
     x += w + gap
   })
 
@@ -551,12 +550,12 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
     `<style>${STYLE}</style>` +
     DEFS +
     `<g class="gauges">${parts.join('')}</g>` +
-    clawd(isWorking, isStressed, false, true, isChill, pet) +
+    clawd(isWorking, isStressed, false, true, isChill, pet, compact) +
     `</svg>`
   )
 }
 
-// 一键压缩的状态：传了就显示压缩提示；hit 回填上下文那块的位置（像素），给外面叠透明按钮用
+// 一键压缩的状态：传了就显示压缩提示（上下文那块的胶囊 + Clawd 身后的光晕）；hit 回填 Clawd 的位置（像素），给外面叠透明按钮用
 export type CompactState = 'idle' | 'armed' | 'running'
 export type Hit = { x: number; w: number }
 
@@ -633,7 +632,12 @@ export function bandSvg(
   }
 
   if (mini) {
-    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet, hit)
+    // 透明按钮叠在小 Clawd 身上（压缩只在 Claude 没干活时出现，此时小 Clawd 不会来回跑）
+    if (hit) {
+      hit.x = MINI_X - 2
+      hit.w = MINI_W + 4
+    }
+    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet, hit, compact)
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
@@ -642,9 +646,10 @@ export function bandSvg(
   const gap = Math.max(MIN_GAP[layout], (width - 2 * CLAWD_X - CLAWD_W - widths.reduce((a, b) => a + b, 0)) / gauges.length)
   const xs: number[] = []
   widths.reduce((x, w) => (xs.push(x), x + w + gap), CLAWD_X + CLAWD_W + gap)
+  // 透明按钮叠在 Clawd 身上：Clawd 固定在最左边，位置最好对准
   if (hit) {
-    hit.x = xs[0]
-    hit.w = widths[0]
+    hit.x = CLAWD_X - 4
+    hit.w = CLAWD_W + 8
   }
   const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout)).join('')
   // 分隔线放在两块之间那段间距的正中间
@@ -663,7 +668,7 @@ export function bandSvg(
     `<style>${STYLE}${css.join('')}</style>` +
     DEFS +
     `<g class="gauges">${seps}${blocks}</g>` +
-    clawd(isWorking, isStressed, clawdChanged, false, isChill, pet) +
+    clawd(isWorking, isStressed, clawdChanged, false, isChill, pet, compact) +
     `</svg>`
   )
 }

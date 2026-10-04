@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.4',
+    notes: {
+      zh: ['一键压缩改成点 Clawd：上下文到 60% 时 Clawd 身后亮起光晕、上下文那块提示「点 Clawd 压缩」，点 Clawd 两下就压缩'],
+      en: ['Compact is now on Clawd: at 60% context he glows and the Context block says "Click Clawd to compact"; click him twice'],
+    },
+  },
+  {
     version: '1.5.3',
     notes: {
       zh: ['修复：展开时点「压缩上下文」胶囊没反应（点击区域中间有缝）'],
