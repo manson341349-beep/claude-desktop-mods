@@ -190,12 +190,18 @@ async function cardData($: EngineInterface): Promise<CardData> {
 }
 
 // 导出 PNG（macOS）：qlmanage 把正方形 SVG 渲染成 1200×1200，sips 从正中裁出 1200×675，
-// 存到桌面，再用 osascript 放进剪贴板（桌面端的 $.ui.copy 还不支持远程界面，而且只能放文字）
+// 存到「图片/Clawd Reports」，再用 osascript 放进剪贴板（桌面端的 $.ui.copy 还不支持远程界面，而且只能放文字）。
+// 不放桌面：每生成一张就多一个文件，桌面很快乱掉（用户自己会一张张删）。
+// 文件夹里只留最近 KEEP_CARDS 张，更早的移进废纸篓（可找回，不直接删），只动本插件命名的文件
+const KEEP_CARDS = 20
 const EXPORT_SH =
   'set -e; d=$(mktemp -d); trap \'rm -r "$d"\' EXIT; cat > "$d/card.svg"; ' +
   'qlmanage -t -s 1200 -o "$d" "$d/card.svg" >/dev/null 2>&1; ' +
-  'out="$HOME/Desktop/$1"; sips -c 675 1200 "$d/card.svg.png" --out "$out" >/dev/null; ' +
-  'osascript -e "set the clipboard to (read (POSIX file \\"$out\\") as «class PNGf»)" >/dev/null; printf %s "$out"'
+  'dir="$HOME/Pictures/Clawd Reports"; mkdir -p "$dir"; out="$dir/$1"; ' +
+  'sips -c 675 1200 "$d/card.svg.png" --out "$out" >/dev/null; ' +
+  'osascript -e "set the clipboard to (read (POSIX file \\"$out\\") as «class PNGf»)" >/dev/null; ' +
+  `ls -t "$dir"/Clawd-report-*.png | tail -n +${KEEP_CARDS + 1} | while IFS= read -r old; do mv "$old" "$HOME/.Trash/" || true; done; ` +
+  'printf %s "$out"'
 
 async function exportCard($: EngineInterface, svg: string): Promise<{ path: string } | { error: string }> {
   const d = new Date()

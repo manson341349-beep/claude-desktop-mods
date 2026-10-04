@@ -131,7 +131,7 @@ test('战报：工具调用计数，改过的文件按路径去重，被拦下�
     on('tool.call', ($, e) => (e.tool === 'Bash' ? { deny: 'blocked' } : { result: {} as never }))
     on('process.run', ($, e) => {
       runs.push({ argv: [...e.argv], stdin: e.init?.stdin })
-      const out = `/Users/me/Desktop/${e.argv[4]}`
+      const out = `/Users/me/Pictures/Clawd Reports/${e.argv[4]}`
       return { value: { exitCode: 0, stdout: out, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
     })
     on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -148,6 +148,11 @@ test('战报：工具调用计数，改过的文件按路径去重，被拦下�
   expect(runs).toHaveLength(1)
   expect(runs[0].argv.slice(0, 2)).toEqual(['/bin/sh', '-c'])
   expect(runs[0].argv[4]).toMatch(/^Clawd-report-\d{8}-\d{6}\.png$/)
+  // 存到「图片/Clawd Reports」而不是桌面；只留最近 20 张，更早的进废纸篓（只动 Clawd-report-*.png）
+  expect(runs[0].argv[2]).toContain('dir="$HOME/Pictures/Clawd Reports"')
+  expect(runs[0].argv[2]).not.toContain('Desktop')
+  expect(runs[0].argv[2]).toContain('ls -t "$dir"/Clawd-report-*.png | tail -n +21')
+  expect(runs[0].argv[2]).toContain('mv "$old" "$HOME/.Trash/"')
   // 导出的是正方形画布（qlmanage 只出正方形），数字对得上：4 次工具调用、2 个文件、1 回合、命中 90%
   const svg = String(runs[0].stdin)
   expect(svg).toContain('width="1200" height="1200"')

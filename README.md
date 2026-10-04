@@ -27,7 +27,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **中英双语**：默认跟随系统语言；`/config` 里的 `language` 可以选 `auto` / `zh` / `en`
 - **浅色 / 深色**：跟着 Claude App 的外观设置自动切换，背景始终透明
 - **养成**：Claude 每答完一轮 Clawd 涨 10 点经验（缓存命中 ≥90% 再 +5，每天第一轮 +20）。Lv.2 头顶冒出小芽、Lv.3 戴红领结、Lv.5 换棒球帽、Lv.10 戴皇冠；还有 8 个成就（缓存大师、夜猫子、极限操作、连续 7 天……）。鼠标放到 Clawd 身上看等级和经验，数据跨会话保存
-- **战报卡**：输入 `/clawd-card`，生成本次会话的战报（时长、回合、工具调用、改动文件、Tokens、缓存命中、等级、本次解锁的成就），复制到剪贴板、存到桌面，直接粘贴到 X（导出图片需要 macOS）
+- **战报卡**：输入 `/clawd-card`，生成本次会话的战报（时长、回合、工具调用、改动文件、Tokens、缓存命中、等级、本次解锁的成就），复制到剪贴板、存到「图片/Clawd Reports」（只留最近 20 张，更早的自动移进废纸篓），直接粘贴到 X（导出图片需要 macOS）
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
 - **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 1 分钟，鼠标放上去会停住，点一下就关；看过就不再弹）。升级、解锁成就也是这样提示
@@ -78,7 +78,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **English / 中文**: follows your system language by default; set `language` in `/config` to `auto`, `zh` or `en`
 - **Light / dark**: follows the Claude app appearance, always on a transparent background
 - **Growth**: Clawd earns 10 XP per turn (+5 at 90%+ cache hit, +20 for the first turn of the day). A sprout at Lv.2, a red bow tie at Lv.3, a cap at Lv.5, a crown at Lv.10, and 8 achievements (Cache master, Night owl, Close call, Full week…). Hover Clawd for his level and XP; progress is kept across sessions
-- **Report card**: `/clawd-card` makes a card of this session (duration, turns, tool calls, files edited, tokens, cache hit, level, achievements unlocked), copies it to the clipboard and saves it to the Desktop, ready to paste into X (image export needs macOS)
+- **Report card**: `/clawd-card` makes a card of this session (duration, turns, tool calls, files edited, tokens, cache hit, level, achievements unlocked), copies it to the clipboard and saves it to Pictures/Clawd Reports (keeps the latest 20; older ones go to the Trash), ready to paste into X (image export needs macOS)
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
 - **What's new**: after an update, the first load shows a toast with the release notes (one minute, hover to hold, click to close; once); level-ups and achievements show the same way

@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.4.6',
+    notes: {
+      zh: ['战报卡改存到「图片/Clawd Reports」，不再堆在桌面；只留最近 20 张，更早的自动移进废纸篓'],
+      en: ['Report cards now go to Pictures/Clawd Reports instead of the Desktop; the latest 20 are kept and older ones move to the Trash'],
+    },
+  },
+  {
     version: '1.4.5',
     notes: {
       zh: ['窗口变窄时信息栏跟着收：先去掉副标题，再把标题缩小放到圆环下面，最窄只留圆环；▼ 按钮始终在右边，不再掉到下一行'],
