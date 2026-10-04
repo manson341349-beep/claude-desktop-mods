@@ -23,6 +23,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **展开时**：圆环依次扫入、数字像老虎机一样滚动、旁边飘出「+N%」
 - **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖；缓存命中 ≥90% 戴上墨镜放松（点子来自 [@Joshua_WD](https://x.com/Joshua_WD)）
 - **中英双语**：默认跟随系统语言；`/config` 里的 `language` 可以选 `auto` / `zh` / `en`
+- **浅色 / 深色**：跟着 Claude App 的外观设置自动切换，背景始终透明
 - **鼠标**：放到 Clawd 身上会冒爱心，点它会空翻；放到圆环上显示详细数值
 - **切换**：点右侧 ▲ 一直展开，点 ▼ 收起；或在输入框输入 `/clawd`
 - **更新提示**：插件更新后第一次打开，右上角会弹出这次改了什么（停 15 秒，看过就不再弹）
@@ -50,7 +51,7 @@ claude plugin update usage-pet@claude-desktop-mods
 
 ### 需要什么 / 已知限制
 
-- Claude 桌面 App 的 **Code 页**，深色主题。终端版只显示数字，没有 Clawd 和圆环动画
+- Claude 桌面 App 的 **Code 页**，浅色、深色外观都支持。终端版只显示数字，没有 Clawd 和圆环动画
 - Claude Code **2.1.287 起**默认支持 mod；作者在 2.1.286（macOS）上实测
 - 桌面 App 目前有一个重画 bug（[anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)）：状态变化时动画会从头播；▲▼ 按钮偶尔点不动，可以用 `/clawd` 代替
 
@@ -71,6 +72,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Expanded**: rings sweep in, digits roll like an odometer, `+N%` chips float up
 - **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%; puts on sunglasses when the cache hit rate is 90%+ (idea by [@Joshua_WD](https://x.com/Joshua_WD))
 - **English / 中文**: follows your system language by default; set `language` in `/config` to `auto`, `zh` or `en`
+- **Light / dark**: follows the Claude app appearance, always on a transparent background
 - **Pointer**: hover Clawd for hearts, click for a flip; hover a ring for details
 - **Toggle**: ▲ keeps it expanded, ▼ collapses; or type `/clawd`
 - **What's new**: after an update, the first load shows a toast with the release notes (15 s, once)
@@ -90,7 +92,7 @@ Auto-update is **off by default** for third-party marketplaces. Turn it on in `/
 
 ### Requirements and known issues
 
-- The **Code tab of Claude Desktop**, dark theme. The terminal shows numbers only
+- The **Code tab of Claude Desktop**, light or dark appearance. The terminal shows numbers only
 - Mods are on by default from Claude Code **2.1.287**; tested by the author on 2.1.286 (macOS)
 - Desktop redraws every mod site on any state change ([anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)), which restarts animations and can make the ▲▼ button miss clicks; `/clawd` always works
 

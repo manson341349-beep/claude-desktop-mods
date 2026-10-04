@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.3.0',
+    notes: {
+      zh: ['支持浅色界面：跟着 Claude App 的外观设置走（浅色 / 深色 / 跟随系统），不用另外设置'],
+      en: ['Light mode: follows the Claude app appearance (light, dark or match system), nothing to configure'],
+    },
+  },
+  {
     version: '1.2.1',
     notes: {
       zh: ['墨镜不再全程戴着：时不时推到额头上眨眨眼；Claude 干活时把墨镜推到头顶专心敲代码'],

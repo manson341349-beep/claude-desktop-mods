@@ -24,9 +24,10 @@ const DIG = 6.2
 const LINE = 14
 const OUT = 'cubic-bezier(.23,1,.32,1)'
 const SPRING = 'cubic-bezier(.34,1.56,.64,1)'
-// 背景透明。小窗口的配色方案和 App 不一致时，浏览器会给它垫一块不透明的底（浅色 = 白），
-// 所以在 SVG 里声明 color-scheme: dark。此前用填色 #232323 去抵消 App 的色彩转换，
-// 但转换结果随显示器色彩配置变化，换屏就对不上。
+// 背景透明。小窗口的配色方案和 App 不一致时，浏览器会给它垫一块不透明的底，
+// 所以声明 color-scheme: light dark：小窗口跟着 App 的外观走（浅色 / 深色 / 跟随系统），
+// 两边永远一致；浅色配色在 STYLE 末尾的 prefers-color-scheme:light 里。
+// 不铺底色：此前用填色 #232323 去抵消 App 的色彩转换，但转换结果随显示器变，换屏就对不上。
 
 type Tier = 'ok' | 'warn' | 'danger'
 
@@ -316,7 +317,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
 // ───────────────────────── 样式 ─────────────────────────
 
 const STYLE =
-  `:root{color-scheme:dark;background:transparent}text{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif}` +
+  `:root{color-scheme:light dark;background:transparent}text{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif}` +
   `.num{font-size:11px;font-weight:700;fill:#F4F2EC;font-variant-numeric:tabular-nums}.num.dim{fill:#6E6C66}.num.sm{font-size:9.5px}` +
   `.pct{font-size:7.5px;font-weight:600;fill:#9C9A93}` +
   `.lab{font-size:12px;font-weight:500;fill:#ECEAE4;letter-spacing:.2px}` +
@@ -389,7 +390,16 @@ const STYLE =
   `@keyframes tremble{0%,100%{transform:none}25%{transform:translateX(.14px)}75%{transform:translateX(-.14px)}}` +
   `@keyframes drip{0%{opacity:0;transform:none}20%{opacity:1}100%{opacity:0;transform:translateY(2.4px)}}` +
   `@keyframes heart{0%{opacity:0;transform:scale(.4)}20%{opacity:1;transform:scale(1)}100%{opacity:0;transform:translate(var(--dx),-5px) scale(.8)}}` +
-  `@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}`
+  `@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}` +
+  `.sep{stroke:#2A2927}` +
+  // 浅色外观：文字换深色、轨道和分隔线换浅灰、阴影变淡；Clawd 本体颜色不变
+  `@media (prefers-color-scheme:light){` +
+  `.num{fill:#1F1E1D}.num.dim{fill:#B4B1A8}.pct{fill:#8A877E}.lab{fill:#2D2C2A}.sub{fill:#77746C}.sub2{fill:#46443F}` +
+  `.track{stroke:#E8E5DC}.mtrack{fill:#E8E5DC}.sep{stroke:#E5E2D9}.mlab{fill:#77746C}.mval{fill:#2D2C2A}` +
+  `.glow{opacity:.3}.chip.ok{fill:#C2603F}.chip.warn{fill:#B26E12}.chip.danger{fill:#D2392B}` +
+  `.shadow{opacity:.16}@keyframes idleshadow{0%,86%,100%{transform:none;opacity:.16}92%{transform:scale(.6);opacity:.08}}` +
+  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}` +
+  `#grad-ok stop+stop{stop-color:#EC9A78}#grad-warn stop+stop{stop-color:#F2B04E}#grad-danger stop+stop{stop-color:#F2705C}}`
 
 const DEFS =
   `<defs>` +
@@ -433,7 +443,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
   })
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${H_MINI}" width="${width}" height="${H_MINI}" style="color-scheme:dark;background:transparent">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${H_MINI}" width="${width}" height="${H_MINI}" style="color-scheme:light dark;background:transparent">` +
     `<style>${STYLE}</style>` +
     DEFS +
     `<g class="gauges">${parts.join('')}</g>` +
@@ -510,14 +520,14 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
     .map(i => {
       const mid = (xs[i] - gap / 2).toFixed(1)
 
-      return `<line x1="${mid}" y1="18" x2="${mid}" y2="46" stroke="#2A2927"/>`
+      return `<line x1="${mid}" y1="18" x2="${mid}" y2="46" class="sep"/>`
     })
     .join('')
 
   const clawdChanged = isChanged && !isFirst
 
   return (
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${H}" width="${width}" height="${H}" style="color-scheme:dark;background:transparent">` +
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${H}" width="${width}" height="${H}" style="color-scheme:light dark;background:transparent">` +
     `<style>${STYLE}${css.join('')}</style>` +
     DEFS +
     `<g class="gauges">${seps}${blocks}</g>` +

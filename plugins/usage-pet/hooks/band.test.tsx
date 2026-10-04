@@ -56,9 +56,14 @@ test('桌面：一张显式宽高、自带底色的 SVG；变化时有扫环、�
   await ui.redraw()
   const settled = await svgOf(ui)
   expect(settled.props?.alt).toBe('上下文 42%，5 小时额度 8%，每周额度 63%，缓存命中 —；Claude 在休息')
-  // 背景透明：不铺底色，声明深色配色方案，避免小窗口垫白底
+  // 背景透明：不铺底色；配色方案声明成 light dark，小窗口跟着 App 外观走，两边一致就不会垫底
   expect(String(settled.props?.source)).not.toContain('class="bg"')
-  expect(String(settled.props?.source)).toContain('color-scheme:dark')
+  expect(String(settled.props?.source)).toContain(':root{color-scheme:light dark;background:transparent}')
+  expect(String(settled.props?.source)).toContain('style="color-scheme:light dark;background:transparent"')
+  // 浅色外观：文字和轨道有浅色版；分隔线走 class，不能把深色写死在属性里
+  expect(String(settled.props?.source)).toMatch(/@media \(prefers-color-scheme:light\)\{\.num\{fill:#1F1E1D\}.*\.track\{stroke:#E8E5DC\}.*\.sep\{stroke:#E5E2D9\}/)
+  expect(String(settled.props?.source)).toContain('class="sep"')
+  expect(String(settled.props?.source)).not.toContain('stroke="#2A2927"')
   expect(String(settled.props?.source)).not.toContain('@keyframes arc')
   expect(String(settled.props?.source)).toContain('class="hop idle"')
 
@@ -178,6 +183,9 @@ test('折叠：数据刷新展开 5 秒后收成细条；按钮和 /clawd 切换
   expect(mini.props?.height).toBe(30)
   expect(String(mini.props?.source)).toContain(' mini"')
   expect(String(mini.props?.source)).toContain('class="mlab">缓存命中')
+  // 细条也跟着 App 外观走
+  expect(String(mini.props?.source)).toContain('style="color-scheme:light dark;background:transparent"')
+  expect(String(mini.props?.source)).toContain('.mtrack{fill:#E8E5DC}')
   expect((await ui.find({ key: 'toggle' }))?.props?.label).toBe('▲')
 
   // 按「展开」→ 一直展开，再等多久都不收
