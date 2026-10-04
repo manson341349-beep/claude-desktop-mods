@@ -340,7 +340,10 @@ const STYLE =
   `.look{transition:transform .3s ${OUT};animation:look 7s ease-in-out infinite}.working .look{animation:focus 4s ease-in-out infinite}` +
   `.gauges:hover~.clawd .look{animation:none;transform:translate(1px,-.15px)}` +
   `.happy,.cheek{opacity:0;transition:opacity .18s ease}` +
-  `.shades{opacity:0;transition:opacity .18s ease}.chill .shades{opacity:1}.chill .eyes{opacity:0}` +
+  // 墨镜不全程戴：空闲时 9 秒一轮「戴着 → 推到额头露出眼睛 → 拉回来」；Claude 干活时推到头顶专心敲代码
+  `.shades{opacity:0;transition:opacity .18s ease}.chill .shades{opacity:1;animation:shadesCycle 9s ease-in-out infinite}` +
+  `.chill .eyes{opacity:0;animation:eyesPeek 9s ease-in-out infinite}` +
+  `.chill.working .shades{animation:none;transform:translateY(-1.9px)}.chill.working .eyes{animation:none;opacity:1}` +
   `.chill .breath{animation-duration:5s}.chill .hop.idle{animation-duration:14s}` +
   `.working .armL{animation:tap .24s ease-in-out infinite alternate}.working .armR{animation:tap .24s ease-in-out .12s infinite alternate}` +
   `.working .legA,.working .legB{opacity:0}` +
@@ -358,10 +361,12 @@ const STYLE =
   `.heart{opacity:0;transform-origin:center}` +
   `@media (hover:hover){.clawd:hover .hop{animation:bounce .55s cubic-bezier(.3,.7,.4,1) infinite}` +
   `.clawd:hover .shadow{animation:bshadow .55s cubic-bezier(.3,.7,.4,1) infinite}` +
-  `.clawd:hover .eyes,.clawd:hover .shades{opacity:0}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
+  `.clawd:hover .eyes,.clawd:hover .shades{opacity:0;animation:none}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
   `.clawd:hover .heart{animation:heart 1.35s ${OUT} infinite}}` +
   `#hit{cursor:pointer}` +
   // keyframes
+  `@keyframes shadesCycle{0%,50%{transform:none}56%,80%{transform:translateY(-1.9px)}86%,100%{transform:none}}` +
+  `@keyframes eyesPeek{0%,52%{opacity:0}56%,80%{opacity:1}84%,100%{opacity:0}}` +
   `@keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}` +
   `@keyframes chip{0%{opacity:0;transform:translateY(4px)}18%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}` +
   `@keyframes dpulse{0%,100%{opacity:.35}50%{opacity:.9}}` +

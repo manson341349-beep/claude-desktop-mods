@@ -428,3 +428,14 @@ test('放松模式：缓存命中低于 90% 不戴墨镜', ZH, async ($, on) => 
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
   expect(String((await svgOf(ui)).props?.source)).not.toMatch(/class="clawd[^"]* chill"/)
 })
+
+test('放松模式 + 干活：墨镜和干活两种状态同时挂在 Clawd 上（干活时墨镜推到头顶）', ZH, async ($, on) => {
+  on('session.measure', ($, e) => ({ changed: e.changed }))
+  on('turn.complete', ($, e) => ({ text: '', usage: e.usage }))
+  await $.session.measure(measure(42, 8, 63))
+  await $.turn.complete(turn(95, 0, 5))
+  const ui = await $.ui.mount({ ...BAND(true), surface: 'desktop' })
+  const src = String((await svgOf(ui)).props?.source)
+  expect(src).toMatch(/class="clawd working[^"]* chill"/)
+  expect(src).toContain('.chill.working .shades{animation:none;transform:translateY(-1.9px)}')
+})
