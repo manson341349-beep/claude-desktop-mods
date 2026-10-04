@@ -570,21 +570,21 @@ test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，�
 
   await $.session.measure(measure(63, 8, 63))
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
-  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd')
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Click Clawd again')
+  expect(await compactLabel(ui)).toBe('Again')
   expect(calls).toHaveLength(0)
   await ui.press({ key: 'compact' })
   expect(calls).toHaveLength(1)
   expect(toasts).toContain('Clawd: context compacted')
-  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd')
   // 不再单独占位：信息栏宽度和平时一样；透明按钮叠在上下文那块的位置上
   // 展开时三个透明按钮上中下盖满整块，点哪一个都一样
   for (const key of ['compact-2', 'compact-3', 'compact-4']) expect(await ui.find({ type: 'Button', key })).toBeDefined()
   // 紧挨着叠（不是 space-between 撑开留缝）
   expect(JSON.stringify(await ui.drawn())).toContain('"justifyContent":"flex-start"')
   await ui.press({ key: 'compact-4' })
-  expect(await compactLabel(ui)).toBe('Click Clawd again')
+  expect(await compactLabel(ui)).toBe('Again')
   await ui.press({ key: 'compact-3' })
   expect(calls).toHaveLength(2)
   const svg = await svgOf(ui)
@@ -597,6 +597,8 @@ test('一键压缩：上下文 <60% 不出现；≥60% 在 ▼ 旁边出现，�
   expect(left).toBe(Math.floor(18 / 8))
   expect(cols).toBe(Math.ceil(72 / 8))
   expect(drawn).toContain('"height":"100%"')
+  // 提示文字不挤排版：宽窗口仍是带副标题的完整排法（1.5.4 被长提示挤成了窄排法，只剩小箭头）
+  expect(String(svg.props?.source)).toContain('class="sub"')
   // Clawd 身后的光晕在呼吸，提示可以点
   expect(String(svg.props?.source)).toMatch(/class="clawd[^"]* compactable idle"/)
   void clock
@@ -608,9 +610,9 @@ test('一键压缩：点了一下 3 秒内没确认就复原，之后单点一�
   await $.session.measure(measure(70, 8, 63))
   const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
   await ui.press({ key: 'compact' })
-  expect(await compactLabel(ui)).toBe('Click Clawd again')
+  expect(await compactLabel(ui)).toBe('Again')
   await clock.advance(3100)
-  expect(await compactLabel(ui)).toBe('Click Clawd to compact')
+  expect(await compactLabel(ui)).toBe('Click Clawd')
   await ui.press({ key: 'compact' })
   expect(calls).toHaveLength(0)
 })

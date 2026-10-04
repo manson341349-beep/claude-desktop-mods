@@ -96,8 +96,8 @@ function textWidth(text: string, size: number): number {
 // 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题、副标题、悬停时换上的详情三行里最长的那行
 // （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
 const pillWidth = (text: string) => textWidth(text, 10.5) + 16
-const contentWidth = (g: Gauge) =>
-  2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), ...(g.pill ? [pillWidth(g.pillMax ?? g.pill)] : [textWidth(g.sub, 10.5), textWidth(g.detail, 10.5)]))
+// 胶囊不参与排版：1.5.4 让「Click Clawd to compact」参与算宽，宽窗口也被挤成没有副标题的窄排法
+const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
 
 // 窗口窄的时候逐级收：full（圆环 + 标题 + 副标题）→ compact（圆环 + 标题）→ stacked（圆环上移、小字标题放在圆环下面）
 // → rings（只有圆环）。收掉的文字都还在每块的悬停提示（<title>）里。
@@ -131,11 +131,9 @@ type Gauge = {
   sub: string
   detail: string
   title: string
-  // 一键压缩：上下文那块的副标题换成橙色胶囊（文字随状态变：压缩 / 再点一次压缩 / 压缩中…）
-  pill?: string
+  // 一键压缩：上下文那块的副标题换成橙色胶囊，候选文字从长到短，放得下哪个用哪个
+  pills?: string[]
   pillArmed?: boolean
-  // 胶囊按三种文字里最长的留宽，切换状态时其它块不跟着挪
-  pillMax?: string
   from?: number
   to?: number
 }
@@ -184,6 +182,8 @@ function odometer(g: Gauge, i: number, cx: number, cy: number, isChanged: boolea
 }
 
 function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[], layout: Layout = 'full'): string {
+  // 胶囊：在这一块现有的文字区里，挑放得下的最长那条
+  const pill = layout === 'full' ? g.pills?.find(text => pillWidth(text) <= w - (2 * R + 4 + 10)) : undefined
   // stacked：圆环在这一块里居中、往上挪，给下面的小字标题让位
   const cx = layout === 'stacked' ? x + w / 2 : x + R + 2
   const cy = layout === 'stacked' ? 25 : 32
@@ -224,9 +224,9 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
     `</g>` +
     (layout === 'full'
       ? `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
-        (g.pill
-          ? `<rect x="${cx + R + 10}" y="33" width="${pillWidth(g.pill).toFixed(1)}" height="16" rx="8" class="pill${g.pillArmed ? ' armed' : ''}"/>` +
-            `<text x="${cx + R + 18}" y="44.5" class="ptxt">${g.pill}</text>`
+        (pill
+          ? `<rect x="${cx + R + 10}" y="33" width="${pillWidth(pill).toFixed(1)}" height="16" rx="8" class="pill${g.pillArmed ? ' armed' : ''}"/>` +
+            `<text x="${cx + R + 18}" y="44.5" class="ptxt">${pill}</text>`
           : `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` + `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`)
       : layout === 'compact'
         ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>`
@@ -234,8 +234,8 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
           ? `<text x="${cx}" y="56" text-anchor="middle" class="lab stk">${g.label}</text>`
           : '') +
     chip +
-    // 窄排法没有副标题的位置：圆环右上角一个橙色小圆点 + ↓ 提示可以压缩
-    (g.pill && layout !== 'full'
+    // 放不下胶囊（窄排法，或这一块的文字区太窄）：圆环右上角一个橙色小圆点 + ↓ 提示可以压缩
+    (g.pills && !pill
       ? `<circle cx="${cx + R - 1}" cy="${cy - R + 2}" r="6" class="pdot${g.pillArmed ? ' armed' : ''}"/><text x="${cx + R - 1}" y="${cy - R + 5}" text-anchor="middle" class="pdotT">↓</text>`
       : '') +
     `</g>`
@@ -516,7 +516,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
       const valueW = textWidth(value, 11.5) * 1.05
 
       // 能压缩时，上下文那项的百分比后面跟一个橙色 ↓
-      const pillW = g.pill ? 14 : 0
+      const pillW = g.pills ? 14 : 0
 
       return { g, value, label, labelW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW + pillW }
     })
@@ -539,7 +539,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
           ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${fill}" height="3" rx="1.5" fill="url(#grad-${t})" class="mfill ${t}"/>`
           : '') +
         `<text x="${(barX + (showBar ? MINI_BAR + 8 : 0)).toFixed(1)}" y="19" class="mval">${value}</text>` +
-        (g.pill ? `<text x="${(x + w - 10).toFixed(1)}" y="19" class="mpill">↓</text>` : '') +
+        (g.pills ? `<text x="${(x + w - 10).toFixed(1)}" y="19" class="mpill">↓</text>` : '') +
         `</g>`,
     )
     x += w + gap
@@ -626,9 +626,8 @@ export function bandSvg(
   ]
 
   if (compact) {
-    gauges[0].pill = compact === 'running' ? t.compacting : compact === 'armed' ? t.compactConfirm : t.compact
+    gauges[0].pills = compact === 'running' ? [t.compacting] : compact === 'armed' ? [t.compactConfirm, t.compactConfirmShort] : [t.compact, t.compactShort]
     gauges[0].pillArmed = compact !== 'idle'
-    gauges[0].pillMax = [t.compact, t.compactConfirm, t.compacting].reduce((a, b) => (textWidth(b, 10.5) > textWidth(a, 10.5) ? b : a))
   }
 
   if (mini) {

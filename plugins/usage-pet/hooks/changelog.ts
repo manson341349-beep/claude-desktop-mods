@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.5.5',
+    notes: {
+      zh: ['修复：上下文到 60% 时信息栏被挤成没有副标题的窄排法；「点 Clawd」提示现在按剩余空间选长短'],
+      en: ['Fix: at 60% context the band dropped to its narrow layout; the "Click Clawd" hint now picks a length that fits'],
+    },
+  },
+  {
     version: '1.5.4',
     notes: {
       zh: ['一键压缩改成点 Clawd：上下文到 60% 时 Clawd 身后亮起光晕、上下文那块提示「点 Clawd 压缩」，点 Clawd 两下就压缩'],
