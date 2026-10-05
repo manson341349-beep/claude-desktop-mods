@@ -211,9 +211,11 @@ test('Windows：/clawd-card 交给 PowerShell 脚本导出（Edge 截图 1200×6
   expect(argv[argv.indexOf('-Keep') + 1]).toBe('20')
   expect(argv[argv.indexOf('-Name') + 1]).toMatch(/^Clawd-report-\d{8}-\d{6}\.png$/)
   // 写到 TEMP 下的 SVG 就是交给脚本的那个；画布直接是 1200×675、直角
+  // 在 macOS 上跑测试时，引擎把 C:\… 当相对路径、前面拼上当前目录，所以写入路径只比结尾
   expect(writes).toHaveLength(1)
-  expect(argv[argv.indexOf('-Svg') + 1]).toBe(writes[0].path)
-  expect(writes[0].path.startsWith(`${WIN_ENV.TEMP}\\Clawd-report-`)).toBe(true)
+  const svgPath = argv[argv.indexOf('-Svg') + 1]
+  expect(svgPath.startsWith(`${WIN_ENV.TEMP}\\Clawd-report-`)).toBe(true)
+  expect(writes[0].path.endsWith(svgPath)).toBe(true)
   expect(writes[0].text).toContain('width="1200" height="675"')
   expect(writes[0].text).toContain('rx="0" fill="#1C1B1A"')
   expect(writes[0].text).toContain('Microsoft YaHei')
