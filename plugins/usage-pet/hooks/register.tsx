@@ -80,8 +80,16 @@ const SEEN_KEY = 'lastSeenVersion'
 // 位置由 App 定（对话区右上角）；鼠标放上去会停住，点一下就关
 const STICKY_MS = 60000
 
-// 跟随系统语言：环境变量 → macOS 系统语言列表 → JS 运行时默认语言 → 英文
-// （桌面 App 启动的会话里 LANG 往往是空的，所以 macOS 要去读 AppleLanguages）
+// 插件跑在独立环境里，没有 process.platform；Windows 一定有 OS=Windows_NT
+async function isWindows($: EngineInterface): Promise<boolean> {
+  return (await $.env.get('OS')) === 'Windows_NT'
+}
+
+// Windows 的 PowerShell 5.1（系统自带，不用另装）。-Sta：剪贴板要求单线程套间
+const POWERSHELL = ['powershell.exe', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Sta']
+
+// 跟随系统语言：环境变量 → 系统语言（macOS 读 AppleLanguages，Windows 读显示语言）→ JS 运行时默认语言 → 英文
+// （桌面 App 启动的会话里 LANG 往往是空的，所以要去问系统）
 async function detectLang($: EngineInterface): Promise<Lang> {
   // 引擎要求变量名写成字面量（validate 才能列出插件读了哪些环境变量）
   const values = [await $.env.get('LC_ALL'), await $.env.get('LC_MESSAGES'), await $.env.get('LANG'), await $.env.get('LANGUAGE')]
@@ -92,13 +100,22 @@ async function detectLang($: EngineInterface): Promise<Lang> {
     }
   }
   try {
-    const { exitCode, stdout } = await $.process.run(['defaults', 'read', '-g', 'AppleLanguages'], { timeoutMs: 3000 })
-    const lang = exitCode === 0 ? langFromTags(parseAppleLanguages(stdout)) : undefined
-    if (lang) {
-      return lang
+    if (await isWindows($)) {
+      // Windows 显示语言，如 zh-CN、en-US
+      const { exitCode, stdout } = await $.process.run([...POWERSHELL, '-Command', '(Get-UICulture).Name'], { timeoutMs: 5000 })
+      const lang = exitCode === 0 ? langFromTags([stdout]) : undefined
+      if (lang) {
+        return lang
+      }
+    } else {
+      const { exitCode, stdout } = await $.process.run(['defaults', 'read', '-g', 'AppleLanguages'], { timeoutMs: 3000 })
+      const lang = exitCode === 0 ? langFromTags(parseAppleLanguages(stdout)) : undefined
+      if (lang) {
+        return lang
+      }
     }
   } catch {
-    // 不是 macOS（没有 defaults 命令）：往下走
+    // 问不到系统（不是 macOS / Windows，或命令起不来）：往下走
   }
   try {
     return langFromTags([Intl.DateTimeFormat().resolvedOptions().locale]) ?? 'en'
@@ -203,12 +220,31 @@ const EXPORT_SH =
   `ls -t "$dir"/Clawd-report-*.png | tail -n +${KEEP_CARDS + 1} | while IFS= read -r old; do mv "$old" "$HOME/.Trash/" || true; done; ` +
   'printf %s "$out"'
 
-async function exportCard($: EngineInterface, svg: string): Promise<{ path: string } | { error: string }> {
+// 导出 PNG（Windows）：hooks/export-card.ps1 用 Edge（没有就用 Chrome）无头模式把 SVG 截成 1200×675，
+// 存到「图片\Clawd Reports」、放进剪贴板，只留最近 KEEP_CARDS 张，更早的移进回收站。
+// SVG 先写到临时文件再交给脚本：经 stdin 传给 PowerShell 会按系统代码页解码，中文会乱
+async function runWindowsExport($: EngineInterface, svg: string, name: string) {
+  const temp = (await $.env.get('TEMP')) ?? (await $.env.get('TMP'))
+  if (!temp) {
+    throw new Error('TEMP is not set')
+  }
+  const svgPath = `${temp}\\${name.replace(/\.png$/, '.svg')}`
+  await $.fs.write(svgPath, svg)
+
+  return $.process.run(
+    [...POWERSHELL, '-File', `${$.plugin.root}\\hooks\\export-card.ps1`, '-Svg', svgPath, '-Name', name, '-Keep', String(KEEP_CARDS)],
+    { timeoutMs: 45000 },
+  )
+}
+
+async function exportCard($: EngineInterface, data: CardData, lang: Lang): Promise<{ path: string } | { error: string }> {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const name = `Clawd-report-${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`
   try {
-    const { exitCode, stdout, stderr } = await $.process.run(['/bin/sh', '-c', EXPORT_SH, 'sh', name], { stdin: svg, timeoutMs: 30000 })
+    const { exitCode, stdout, stderr } = (await isWindows($))
+      ? await runWindowsExport($, cardSvg(data, lang, 'wide'), name)
+      : await $.process.run(['/bin/sh', '-c', EXPORT_SH, 'sh', name], { stdin: cardSvg(data, lang, 'square'), timeoutMs: 30000 })
     if (exitCode !== 0 || !stdout.endsWith(name)) {
       return { error: (stderr || `exit ${exitCode}`).trim().slice(0, 200) }
     }
@@ -327,7 +363,7 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'clawd-card' }, async $ => {
     const lang = await langOf($, choice)
     await $.ui.open({ id: CARD_PANE, title: T[lang].card.title })
-    const out = await exportCard($, cardSvg(await cardData($), lang, true))
+    const out = await exportCard($, await cardData($), lang)
 
     return { text: 'path' in out ? T[lang].cardSaved(out.path) : T[lang].cardOnlyShown(out.error) }
   })

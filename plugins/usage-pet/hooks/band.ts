@@ -392,7 +392,7 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
 // ───────────────────────── 样式 ─────────────────────────
 
 const STYLE =
-  `:root{color-scheme:light dark;background:transparent}text{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif}` +
+  `:root{color-scheme:light dark;background:transparent}text{font-family:-apple-system,"SF Pro Text","PingFang SC","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif}` +
   `.num{font-size:11px;font-weight:700;fill:#F4F2EC;font-variant-numeric:tabular-nums}.num.dim{fill:#6E6C66}.num.sm{font-size:9.5px}` +
   `.pct{font-size:7.5px;font-weight:600;fill:#9C9A93}` +
   `.lab{font-size:12px;font-weight:500;fill:#ECEAE4;letter-spacing:.2px}.lab.stk{font-size:${STACKED_LABEL}px;letter-spacing:0}` +

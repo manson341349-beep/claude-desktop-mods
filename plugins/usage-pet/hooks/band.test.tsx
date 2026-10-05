@@ -421,6 +421,21 @@ test('跟随系统：不是 macOS（没有 defaults 命令）也能正常显示'
   expect(String((await svgOf(ui)).props?.alt)).toMatch(/上下文|Context/)
 })
 
+test('跟随系统（Windows）：环境变量为空、显示语言中文（zh-CN）→ 中文，问的是 PowerShell 不是 defaults', AUTO, async ($, on) => {
+  const asked = await startAuto($, on, { OS: 'Windows_NT' }, 'zh-CN\r\n')
+  expect(asked).toHaveLength(1)
+  expect(asked[0][0]).toBe('powershell.exe')
+  expect(asked[0]).toContain('(Get-UICulture).Name')
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  expect(String((await svgOf(ui)).props?.alt)).toContain('上下文')
+})
+
+test('跟随系统（Windows）：显示语言英文（en-US）→ 英文', AUTO, async ($, on) => {
+  await startAuto($, on, { OS: 'Windows_NT' }, 'en-US\r\n')
+  const ui = await $.ui.mount({ ...BAND(false), surface: 'desktop' })
+  expect(String((await svgOf(ui)).props?.alt)).toContain('Context')
+})
+
 test('放松模式：缓存命中 ≥90% 戴墨镜；同时额度告急则只冒汗不戴墨镜', ZH, async ($, on) => {
   on('session.measure', ($, e) => ({ changed: e.changed }))
   on('turn.complete', ($, e) => ({ text: '', usage: e.usage }))

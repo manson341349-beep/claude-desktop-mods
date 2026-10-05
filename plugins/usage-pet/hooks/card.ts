@@ -31,7 +31,7 @@ function stamp(at: number): string {
 }
 
 const STYLE =
-  `text{font-family:-apple-system,"SF Pro Text","PingFang SC",sans-serif}` +
+  `text{font-family:-apple-system,"SF Pro Text","PingFang SC","Segoe UI","Microsoft YaHei UI","Microsoft YaHei",sans-serif}` +
   `.v{font-size:26px;font-weight:700;fill:#F4F2EC;font-variant-numeric:tabular-nums}` +
   `.l{font-size:12px;fill:#8C8A84}.u{font-size:16px;font-weight:600;fill:#B5B2AA}` +
   `.h{font-size:20px;font-weight:700;fill:#F4F2EC}` +
@@ -43,9 +43,12 @@ const STYLE =
   // 卡上的 Clawd 是静止的：笑脸、腮红不画；命中高就戴墨镜
   `.happy,.cheek,.shades{opacity:0}.chill .shades{opacity:1}.chill .eyes{opacity:0}`
 
-// square：导出 PNG 用。macOS 的 qlmanage 只出正方形缩略图（多余处补白），
-// 所以把卡放在正方形画布正中，四周铺同色，导出后再从正中裁出 16:9。
-export function cardSvg(data: CardData, lang: Lang, square = false): string {
+// canvas：pane = 面板里画的 640×360；
+// square = macOS 导出用：qlmanage 只出正方形缩略图（多余处补白），所以把卡放在正方形画布正中，四周铺同色，导出后再从正中裁出 16:9；
+// wide = Windows 导出用：浏览器按窗口大小截图，直接给 1200×675 的画布
+export type CardCanvas = 'pane' | 'square' | 'wide'
+
+export function cardSvg(data: CardData, lang: Lang, canvas: CardCanvas = 'pane'): string {
   const t = T[lang].card
   const level = levelOf(data.pet.xp)
   const from = threshold(level)
@@ -78,7 +81,7 @@ export function cardSvg(data: CardData, lang: Lang, square = false): string {
   const earned = names.length > 0 ? names.map(esc).join('  ·  ') : t.none
 
   const card =
-    `<rect width="${CARD_W}" height="${CARD_H}" rx="${square ? 0 : 20}" fill="#1C1B1A"/>` +
+    `<rect width="${CARD_W}" height="${CARD_H}" rx="${canvas === 'pane' ? 20 : 0}" fill="#1C1B1A"/>` +
     `<rect x="24" y="24" width="208" height="312" rx="16" fill="#262624"/>` +
     // Clawd：一格 10px，头顶留 3 格给装扮
     `<ellipse cx="128" cy="196" rx="62" ry="5" fill="#000" opacity=".35"/>` +
@@ -95,7 +98,7 @@ export function cardSvg(data: CardData, lang: Lang, square = false): string {
     `<text x="268" y="312" class="chip">${earned}</text>` +
     `<text x="616" y="336" text-anchor="end" class="f">usage-pet · ${REPO}</text>`
 
-  if (square) {
+  if (canvas === 'square') {
     return (
       `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 ${CARD_W} ${CARD_W}">` +
       `<style>${STYLE}</style><rect width="${CARD_W}" height="${CARD_W}" fill="#1C1B1A"/>` +
@@ -103,7 +106,10 @@ export function cardSvg(data: CardData, lang: Lang, square = false): string {
     )
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${CARD_W}" height="${CARD_H}"><style>${STYLE}</style>${card}</svg>`
+  // wide 是直角（上面 rx = 0）：圆角留下的四个角会被截成白色
+  const [width, height] = canvas === 'wide' ? [1200, 675] : [CARD_W, CARD_H]
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CARD_W} ${CARD_H}" width="${width}" height="${height}"><style>${STYLE}</style>${card}</svg>`
 }
 
 export function cardAlt(data: CardData, lang: Lang): string {

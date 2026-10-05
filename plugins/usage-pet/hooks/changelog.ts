@@ -6,6 +6,17 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.6.0',
+    notes: {
+      zh: [
+        '支持 Windows：跟随 Windows 显示语言；/clawd-card 用系统自带的 Edge（没有就用 Chrome）导出图片，复制到剪贴板、存到「图片\\Clawd Reports」，旧的移进回收站；文字用 Segoe UI / 微软雅黑',
+      ],
+      en: [
+        'Windows support: follows the Windows display language; /clawd-card exports the image with Edge (or Chrome), copies it to the clipboard and saves it to Pictures\\Clawd Reports, older cards go to the Recycle Bin; text uses Segoe UI / Microsoft YaHei',
+      ],
+    },
+  },
+  {
     version: '1.5.7',
     notes: {
       zh: ['移除「一键压缩」：桌面 App 里插件暂时不能触发压缩（官方接口限制），压缩请直接输入 /compact'],

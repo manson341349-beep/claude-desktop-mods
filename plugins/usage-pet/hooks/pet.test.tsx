@@ -127,6 +127,7 @@ test('子代理的回合不涨经验', ZH, async ($, on) => {
 test('战报：工具调用计数，改过的文件按路径去重，被拦下的不算；/clawd-card 导出图片', ZH, async ($, on) => {
   const runs: { argv: string[]; stdin?: string }[] = []
   await start($, on, {}, on => {
+    mock.env(on, { HOME: '/Users/me' })
     // 测试里的「核心」：Edit / Write 照常完成，Bash rm 被拦
     on('tool.call', ($, e) => (e.tool === 'Bash' ? { deny: 'blocked' } : { result: {} as never }))
     on('process.run', ($, e) => {
@@ -170,9 +171,62 @@ test('战报：工具调用计数，改过的文件按路径去重，被拦下�
 
 test('导出失败（不是 macOS）：面板照样打开，告诉用户为什么没图', ZH, async ($, on) => {
   await start($, on, {}, on => {
+    mock.env(on, {})
     on('process.run', () => ({ value: { exitCode: 127, stdout: '', stderr: 'qlmanage: not found', isStdoutTruncated: false, isStderrTruncated: false } }))
     on('ui.open', () => ({ value: { isPlaced: true } }))
   })
   const res = await $.command.run({ command: 'clawd-card', args: '' } as never)
   expect(String((res as { text?: string }).text)).toContain('没能导出图片：qlmanage: not found')
+})
+
+// ───────── Windows ─────────
+const WIN_ENV = { OS: 'Windows_NT', TEMP: 'C:\\Users\\me\\AppData\\Local\\Temp' }
+
+test('Windows：/clawd-card 交给 PowerShell 脚本导出（Edge 截图 1200×675），SVG 先写进临时文件', ZH, async ($, on) => {
+  const runs: string[][] = []
+  const writes: { path: string; text: string }[] = []
+  await start($, on, {}, on => {
+    mock.env(on, WIN_ENV)
+    on('fs.write', ($, e) => {
+      writes.push({ path: e.path, text: e.text })
+      return { value: undefined }
+    })
+    on('process.run', ($, e) => {
+      runs.push([...e.argv])
+      const name = e.argv[e.argv.indexOf('-Name') + 1]
+      return { value: { exitCode: 0, stdout: `C:\\Users\\me\\Pictures\\Clawd Reports\\${name}`, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+    })
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+  })
+  await $.turn.complete(turn(900, 50, 50))
+
+  const res = await $.command.run({ command: 'clawd-card', args: '' } as never)
+  expect(String((res as { text?: string }).text)).toContain('Clawd 战报已复制到剪贴板')
+  expect(String((res as { text?: string }).text)).toContain('Pictures\\Clawd Reports\\Clawd-report-')
+  expect(runs).toHaveLength(1)
+  const argv = runs[0]
+  expect(argv[0]).toBe('powershell.exe')
+  expect(argv).toContain('-Sta')
+  expect(argv[argv.indexOf('-File') + 1]).toMatch(/\\hooks\\export-card\.ps1$/)
+  expect(argv[argv.indexOf('-Keep') + 1]).toBe('20')
+  expect(argv[argv.indexOf('-Name') + 1]).toMatch(/^Clawd-report-\d{8}-\d{6}\.png$/)
+  // 写到 TEMP 下的 SVG 就是交给脚本的那个；画布直接是 1200×675、直角
+  expect(writes).toHaveLength(1)
+  expect(argv[argv.indexOf('-Svg') + 1]).toBe(writes[0].path)
+  expect(writes[0].path.startsWith(`${WIN_ENV.TEMP}\\Clawd-report-`)).toBe(true)
+  expect(writes[0].text).toContain('width="1200" height="675"')
+  expect(writes[0].text).toContain('rx="0" fill="#1C1B1A"')
+  expect(writes[0].text).toContain('Microsoft YaHei')
+  expect(writes[0].text).toMatch(/>1<\/text><text[^>]*>回合/)
+})
+
+test('Windows：导出失败（找不到 Edge / Chrome）时面板照样打开，告诉用户原因', ZH, async ($, on) => {
+  await start($, on, {}, on => {
+    mock.env(on, WIN_ENV)
+    on('fs.write', () => ({ value: undefined }))
+    on('process.run', () => ({ value: { exitCode: 1, stdout: '', stderr: 'Microsoft Edge or Google Chrome not found', isStdoutTruncated: false, isStderrTruncated: false } }))
+    on('ui.open', () => ({ value: { isPlaced: true } }))
+  })
+  const res = await $.command.run({ command: 'clawd-card', args: '' } as never)
+  expect(String((res as { text?: string }).text)).toContain('没能导出图片：Microsoft Edge or Google Chrome not found')
 })

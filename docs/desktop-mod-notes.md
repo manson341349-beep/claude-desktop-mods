@@ -1,6 +1,6 @@
 # Desktop mod notes · 桌面端 mod 踩坑笔记
 
-Things we hit while building `usage-pet` for the Code tab of Claude Desktop (Claude Code 2.1.286, macOS).
+Things we hit while building `usage-pet` for the Code tab of Claude Desktop (Claude Code 2.1.286, macOS; Windows in §14).
 Each item: what you see → why → what to do.
 
 做 `usage-pet` 时在 Claude 桌面 App（Claude Code 2.1.286，macOS）上实际踩到的坑。每条都是：现象 → 原因 → 做法。
@@ -9,7 +9,7 @@ Each item: what you see → why → what to do.
 
 ## 1. `Client` never loads on desktop · 桌面端 `Client` 加载不出来
 
-- **You see**: `Client frame torn down: did not load within 10s (a content security policy may have refused its runtime…)` in `~/Library/Logs/Claude/claude.ai-web.log`.
+- **You see**: `Client frame torn down: did not load within 10s (a content security policy may have refused its runtime…)` in `~/Library/Logs/Claude/claude.ai-web.log` (Windows: `%APPDATA%\Claude\logs\`).
 - **Why**: on 2.1.286 every desktop `Client` frame times out — a missing CSP nonce ([anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)).
 - **Do**: draw on desktop with `Svg` (plus CSS/SMIL animation inside it). Keep `Client` for the terminal.
 - 桌面端改用 `Svg`，动画写在 SVG 里；`Client` 只给终端用。
@@ -87,3 +87,12 @@ Each item: what you see → why → what to do.
 
 - In `claude plugin test`, a test's `on('command.register' | 'session.usage' | 'ui.toast', …)` stand-in must return `{ value: … }` or `{ deny: … }`. A bare object makes the engine skip the stand-in, the plugin's call then fails with `no implementation for …`, and the plugin's hook is skipped — tests can pass or fail for the wrong reason.
 - 测试里冒充 API 调用的 hook 要返回 `{ value }`，否则会被跳过，测试可能「为错误的原因」通过。
+
+## 14. Windows · Windows 上的差异
+
+- **No `process.platform`**: the hooks module has no Node. `$.env.get('OS') === 'Windows_NT'` tells Windows apart (every Windows process has it).
+- **Language**: `LANG` is usually unset in a session the desktop app starts. Ask `powershell.exe -NoProfile -Command (Get-UICulture).Name` (the display language, e.g. `zh-CN`) where macOS asks `defaults read -g AppleLanguages`.
+- **SVG → PNG**: Windows has no `qlmanage`. Edge ships with Windows 10/11 and screenshots an SVG headless: `msedge --headless --screenshot=out.png --window-size=1200,675 file:///…/card.svg`. Give it its own `--user-data-dir`, or with the user's Edge open the command is handed to that window and returns with no screenshot. Paint the card edge to edge (no rounded corners) so no backdrop shows in the corners.
+- **PowerShell scripts**: ship them ASCII only (5.1 reads a `.ps1` without a BOM in the system code page), and hand text over in a file, not stdin (stdin is decoded in the code page too). The clipboard needs `-Sta`. Set `[Console]::OutputEncoding` to UTF-8 before writing a path to stdout, so non-ASCII folder names come back intact.
+- **Fonts**: add `"Segoe UI","Microsoft YaHei UI","Microsoft YaHei"` after the Apple fonts. CJK is still 1 em and Segoe UI digits are a bit narrower than SF, so the width estimates in §9 stay on the safe side.
+- 插件里没有 `process.platform`，用 `OS=Windows_NT` 判断；语言问 `Get-UICulture`；SVG 转 PNG 用系统自带 Edge 无头截图（要单独的 `--user-data-dir`）；`.ps1` 只写 ASCII，文字走文件不走 stdin；字体补上 Segoe UI / 微软雅黑。
