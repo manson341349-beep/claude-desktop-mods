@@ -45,6 +45,7 @@ export const T = {
     working: 'Claude 正在干活',
     resting: 'Claude 在休息',
     whatsNew: (v: string) => `🦀 Clawd 信息栏 ${v}：`,
+    starNudge: '觉得好玩，去 GitHub 点个 ⭐ 支持一下：github.com/manson341349-beep/claude-desktop-mods',
     pinned: 'Clawd 信息栏：一直展开',
     autoCollapse: 'Clawd 信息栏：自动收起（数据刷新时展开 5 秒）',
     // 养成
@@ -102,6 +103,7 @@ export const T = {
     working: 'Claude is working',
     resting: 'Claude is resting',
     whatsNew: (v: string) => `🦀 Clawd band ${v}: `,
+    starNudge: 'Enjoying Clawd? A ⭐ on GitHub helps: github.com/manson341349-beep/claude-desktop-mods',
     pinned: 'Clawd band: always expanded',
     autoCollapse: 'Clawd band: auto-collapse (expands for 5 s when usage refreshes)',
     gear: { sprout: 'a sprout', bowtie: 'a red bow tie', cap: 'a baseball cap', crown: 'a tiny crown' },

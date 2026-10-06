@@ -3,6 +3,9 @@
 为 **Claude 桌面 App 的 Code 页** 做的 mod（Claude Code 插件）。
 Mods for the **Code tab of the Claude Desktop app**.
 
+⭐ **装了觉得好玩，点个 Star 支持一下**：这是我们知道有人在用、继续做下去的动力。
+⭐ **Enjoying it? Give the repo a star**: it's how we know people use it, and it keeps the updates coming.
+
 > **非官方项目**：与 Anthropic 无关，也未获其认可。Clawd 是 Anthropic 的吉祥物，这里是粉丝自制的像素版。
 > **Unofficial.** Not affiliated with or endorsed by Anthropic. Clawd is Anthropic's mascot; the pixel version here is fan-made.
 

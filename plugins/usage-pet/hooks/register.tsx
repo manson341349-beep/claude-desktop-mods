@@ -141,10 +141,12 @@ async function showWhatsNew($: EngineInterface, lang: Lang) {
   if (lastSeen === latest || (await $.session.surfaces()).length === 0) {
     return
   }
-  // 旧的先弹、新的后弹，最新的那条落在最上面
-  for (const release of unseenReleases(lastSeen).reverse()) {
-    $.ui.toast(T[lang].whatsNew(release.version) + release.notes[lang].join(' · '), { timeoutMs: STICKY_MS })
-  }
+  // 旧的先弹、新的后弹，最新的那条落在最上面；只在最新这条末尾请大家点个 star（装了的人多，点 star 的少）
+  const releases = unseenReleases(lastSeen).reverse()
+  releases.forEach((release, i) => {
+    const notes = release.notes[lang].join(' · ')
+    $.ui.toast(T[lang].whatsNew(release.version) + notes + (i === releases.length - 1 ? `\n${T[lang].starNudge}` : ''), { timeoutMs: STICKY_MS })
+  })
   await $.store.set(SEEN_KEY, latest)
 }
 
