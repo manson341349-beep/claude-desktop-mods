@@ -100,7 +100,8 @@ const turn = (read: number, write: number, fresh: number) => ({
   usage: { model: 'claude-opus-5-5', input_tokens: fresh, output_tokens: 40, cache_read_input_tokens: read, cache_creation_input_tokens: write },
 })
 
-test('答完一轮：经验写回 store，升级弹提示，信息栏上的 Clawd 戴上小芽、悬停显示等级', ZH, async ($, on) => {
+// 关掉节日装扮：万圣节期间头顶是巫师帽，看不到小芽
+test('答完一轮：经验写回 store，升级弹提示，信息栏上的 Clawd 戴上小芽、悬停显示等级', { options: { language: 'zh', seasonal: 'off' } }, async ($, on) => {
   const { toasts, timeouts } = await start($, on, { pet: { xp: 95, turns: 9, streak: 1, lastDay: '2000-01-01', achievements: [] } })
   await $.turn.complete(turn(50, 0, 50))
 

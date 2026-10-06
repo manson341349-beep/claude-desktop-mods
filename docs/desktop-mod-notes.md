@@ -96,3 +96,11 @@ Each item: what you see → why → what to do.
 - **PowerShell scripts**: ship them ASCII only (5.1 reads a `.ps1` without a BOM in the system code page), and hand text over in a file, not stdin (stdin is decoded in the code page too). The clipboard needs `-Sta`. Set `[Console]::OutputEncoding` to UTF-8 before writing a path to stdout, so non-ASCII folder names come back intact.
 - **Fonts**: add `"Segoe UI","Microsoft YaHei UI","Microsoft YaHei"` after the Apple fonts. CJK is still 1 em and Segoe UI digits are a bit narrower than SF, so the width estimates in §9 stay on the safe side.
 - 插件里没有 `process.platform`，用 `OS=Windows_NT` 判断；语言问 `Get-UICulture`；SVG 转 PNG 用系统自带 Edge 无头截图（要单独的 `--user-data-dir`）；`.ps1` 只写 ASCII，文字走文件不走 stdin；字体补上 Segoe UI / 微软雅黑。
+
+## 15. Clicks the plugin never hears · 插件收不到的点击
+
+- **You see**: a `Svg` with `isInteractive` takes clicks, but nothing reaches the plugin — there is no `onPress` on `Svg`, and a `Button` laid over it misses clicks (the one-click compact attempt, removed in 1.5.7).
+- **Do**: keep the whole interaction inside the SVG with SMIL events. `begin="hit.click"` starts a reaction; stack several transparent hit areas and hide the top one for a moment on click (`<set attributeName="visibility" to="hidden" begin="hit.click" dur="1.6s"/>`) so the next click lands on the next layer — that counts double / triple clicks.
+- **"Do X unless clicked first"**: `end="hit.click"` is ignored when the click comes before the element begins. Run a timer twice instead (`repeatCount="2" end="hit.click"`) and start X on `timer.repeat(1)`: a click ends the timer early, so the repeat never fires.
+- **Testing**: check SMIL in real time with real mouse events (headless Chrome + CDP `Input.dispatchMouseEvent`). `pauseAnimations()` + `setCurrentTime()` drops event-based instance times on a seek, so a seek-based probe reports clicks as never having happened.
+- 插件收不到 SVG 里的点击：交互全用 SMIL 事件写在 SVG 里；连点用几层点击区叠放、点了就藏一会儿；「不点才发生」用跑两遍的计时器 + `repeat(1)`；验证要真实时间 + 真实鼠标，拨时间轴会丢掉点击。

@@ -30,6 +30,11 @@ export const XP_DAILY = 20
 
 export const threshold = (level: number) => 50 * level * (level - 1)
 
+// 万圣节装扮：10 月 25 日到 11 月 1 日（本机日期）
+export function isHalloween(at: Date): boolean {
+  return (at.getMonth() === 9 && at.getDate() >= 25) || (at.getMonth() === 10 && at.getDate() === 1)
+}
+
 export function levelOf(xp: number): number {
   let level = 1
   while (xp >= threshold(level + 1)) {

@@ -33,7 +33,8 @@ const SPRING = 'cubic-bezier(.34,1.56,.64,1)'
 type Tier = 'ok' | 'warn' | 'danger'
 
 // 信息栏上 Clawd 的养成状态：等级决定装扮，title 是鼠标悬停的提示
-export type PetView = { level: number; title: string }
+// halloween：万圣节装扮；askAgo：答完一轮后 Clawd 讨糖开始了几秒（负数 = 还没开始，undefined = 不讨糖）
+export type PetView = { level: number; title: string; halloween?: boolean; askAgo?: number }
 
 const tier = (p: number): Tier => (p >= 95 ? 'danger' : p >= 80 ? 'warn' : 'ok')
 
@@ -250,10 +251,29 @@ function spark(cx: number, cy: number, r: number, w: number, color: string): str
 }
 
 // 养成解锁的装扮（Clawd 的格子坐标，头顶 y<0）。画在 body 里，跟着呼吸、跳、跑一起动
-function gearSvg(level: number): string {
+// 万圣节：巫师帽（帽尖往后折，最高到 -3.8 格，不出信息栏上沿）
+const WITCH_HAT =
+  `<path d="M5.4-.6 10.6-.6 9.5-3 11.3-3.8 8.7-3.4Z" fill="#3B2A55"/>` +
+  `<path d="M8.7-3.4 9.5-3 9.1-2.6Z" fill="#2A1E3D"/>` +
+  px(2.6, -0.8, 10.8, 0.8, '#2A1E3D') +
+  px(5.7, -1.45, 4.6, 0.55, '#F28C28') +
+  px(7.6, -1.5, 0.9, 0.65, '#F2C14E')
+
+// 讨糖南瓜桶（以桶左上角为原点，3×2.4 格）
+const PAIL =
+  `<path d="M.4.3Q1.5-1.1 2.6.3" stroke="#55534D" stroke-width=".28" fill="none"/>` +
+  `<rect y=".2" width="3" height="2.4" rx=".9" fill="#F28C28"/>` +
+  px(1.3, 0.2, 0.4, 2.4, '#D96F12') +
+  `<path d="M.5.9 1 .9 .75 1.35Z" fill="#3A2208"/><path d="M2 .9 2.5 .9 2.25 1.35Z" fill="#3A2208"/>` +
+  px(0.6, 1.8, 1.8, 0.28, '#3A2208') +
+  px(0.5, -0.15, 0.6, 0.45, '#E5484D') +
+  px(1.9, -0.2, 0.6, 0.5, '#5FB0F0')
+
+function gearSvg(level: number, halloween = false, pailExtra = ''): string {
   const { head, bowtie } = gearOf(level)
-  const hat =
-    head === 'sprout'
+  const hat = halloween
+    ? WITCH_HAT
+    : head === 'sprout'
       ? px(7.75, -1.7, 0.5, 1.7, '#5E9E4B') + px(6.3, -2.3, 1.4, 0.7, '#7BC163') + px(8.3, -2.8, 1.4, 0.7, '#8ED073')
       : head === 'cap'
         ? `<rect x="3.4" y="-1.8" width="9" height="1.9" rx=".8" fill="#3E6FD8"/>` +
@@ -271,11 +291,14 @@ function gearSvg(level: number): string {
     ? `<path d="M6.4 5.3 7.8 5.85 6.4 6.4Z" fill="#E5484D"/><path d="M9.6 5.3 8.2 5.85 9.6 6.4Z" fill="#E5484D"/>` + px(7.6, 5.55, 0.8, 0.6, '#B83238')
     : ''
 
-  return tie + hat
+  // 南瓜桶挂在右钳子上
+  const pail = halloween ? `<g class="hw-pail" transform="translate(14.3 4.9)">${pailExtra}${PAIL}</g>` : ''
+
+  return tie + hat + pail
 }
 
 // Clawd 的身子（不含阴影、笔记本、爱心）：信息栏和战报卡共用
-export function clawdBody(isStressed: boolean, level = 1): string {
+export function clawdBody(isStressed: boolean, level = 1, halloween = false, pailExtra = ''): string {
   const eyes =
     `<g class="eyes"><g class="look">` +
     px(4, 2, 1, 2, '#231511', ' class="eye"') +
@@ -309,16 +332,105 @@ export function clawdBody(isStressed: boolean, level = 1): string {
     happy +
     cheeks +
     brows +
-    gearSvg(level)
+    gearSvg(level, halloween, pailExtra)
 
   return body
 }
 
 // mini：收起状态下的半尺寸 Clawd，不搬笔记本，干活时在细条上来回小跑
+// ───────── 万圣节 ─────────
+
+// 干活时飘的糖果（代替 { } </> ✓）：以糖果中心为原点，约 2 格宽
+const CANDIES = [
+  `<rect x="-.55" y="-.4" width="1.1" height=".8" rx=".35" fill="#E5484D"/><path d="M-.55 0-1.1-.42-1.1.42Z" fill="#F7909F"/><path d="M.55 0 1.1-.42 1.1.42Z" fill="#F7909F"/>`,
+  `<rect x="-.09" y=".1" width=".18" height="1.1" fill="#C9C6BE"/><circle r=".6" fill="#9B6BDF"/><circle r=".26" fill="#F2C14E"/>`,
+  `<path d="M0-.75.6.6-.6.6Z" fill="#F2C14E"/><path d="M-.38.15.38.15.6.6-.6.6Z" fill="#F4F2EC"/><path d="M-.21-.27.21-.27.35.05-.35.05Z" fill="#F28C28"/>`,
+]
+
+// Claude 干活时披上白床单当幽灵（帽子照戴）
+const GHOST =
+  `<path d="M2.6-.9Q8-2.4 13.4-.9L14.6 6.6 15.6 8.6 13.6 8 12.2 8.9 10.6 8 9 8.9 7.4 8 5.8 8.9 4.2 8 2.6 8.9 1.4 8 .4 8.6 1.4 6.6Z" fill="#F4F2EC"/>` +
+  `<ellipse cx="4.6" cy="3" rx=".75" ry="1.05" fill="#231511"/><ellipse cx="11.4" cy="3" rx=".75" ry="1.05" fill="#231511"/>` +
+  px(2.8, 4.4, 1.4, 0.5, '#F7909F', ' opacity=".55"') +
+  px(11.8, 4.4, 1.4, 0.5, '#F7909F', ' opacity=".55"')
+
+// 讨糖：答完一轮后 Clawd 举起南瓜桶要糖。ANGRY_AFTER 秒没人点他就生气；
+// 点一下 = 给糖（开心 3 秒），CLICK_WINDOW 内连点第二下空翻、第三下跳起来撒糖。
+// 插件收不到 SVG 里的点击，全靠 SMIL 事件：三层点击区叠着，点上面一层它就藏起一会儿，下一下落到下一层。
+// 「没点就生气」用一个跑两遍的计时器：被点击提前结束就没有第二遍（repeat 事件），生气也就不会开始。
+const ANGRY_AFTER = 12
+const CLICK_WINDOW = '1.6s'
+const HIT_RECT = 'x="-1.5" y="-4.5" width="19" height="15" fill="transparent"'
+
+function candyTimeline(askAgo: number) {
+  const start = `${Math.max(0, -askAgo).toFixed(2)}s`
+  const wait = Math.max(0.05, ANGRY_AFTER - Math.max(0, askAgo)).toFixed(2)
+  const angry = 'hwtimer.repeat(1)'
+  const asking = `begin="${start}" end="hit.click"`
+  const showWhileAsking = `<set attributeName="opacity" to="1" ${asking}/>`
+  const showWhenAngry = `<set attributeName="opacity" to="1" begin="${angry}"/>`
+
+  const confetti = Array.from({ length: 6 }, (_, k) => {
+    const a = (k / 6) * Math.PI * 2 - Math.PI / 2
+    const to = `${(8 + Math.cos(a) * 9).toFixed(2)} ${(3 + Math.sin(a) * 6).toFixed(2)}`
+
+    return (
+      `<g opacity="0"><set attributeName="opacity" to="1" begin="hit3.click" dur=".9s"/>` +
+      `<animateTransform attributeName="transform" type="translate" from="8 3" to="${to}" dur=".9s" begin="hit3.click" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".2 .8 .2 1"/>` +
+      `${CANDIES[k % 3]}</g>`
+    )
+  }).join('')
+
+  return {
+    // 挂在钳子上的桶：讨糖时藏起来，换成举高摇晃的那只
+    pail: `<set attributeName="opacity" to="0" ${asking}/>`,
+    // 脸（画在身子里，跟着呼吸一起动）
+    face:
+      `<g opacity="0">${showWhileAsking}<g opacity="0">${showWhenAngry}` +
+      px(2, 1, 12, 5, '#E5484D', ' opacity=".22"') +
+      `<g stroke="#231511" stroke-width=".42" stroke-linecap="round" fill="none"><line x1="3.4" y1="1.05" x2="5.1" y2="1.6"/><line x1="12.6" y1="1.05" x2="10.9" y2="1.6"/>` +
+      `<path d="M6.8 5.1Q8 4.3 9.2 5.1"/></g></g></g>` +
+      `<g opacity="0"><set attributeName="opacity" to="1" begin="hit.click" dur="3s"/>` +
+      px(3, 1.8, 3, 2.4, '#D97757') +
+      px(10, 1.8, 3, 2.4, '#D97757') +
+      `<g fill="none" stroke="#231511" stroke-width=".55" stroke-linecap="round" stroke-linejoin="round"><path d="M3.6 3.3 4.5 2.4 5.4 3.3"/><path d="M10.6 3.3 11.5 2.4 12.4 3.3"/></g>` +
+      px(2.6, 4.1, 1.7, 0.7, '#F7909F') +
+      px(11.7, 4.1, 1.7, 0.7, '#F7909F') +
+      `</g>`,
+    // 生气时原地跺脚
+    stomp: `<animateTransform attributeName="transform" type="translate" values="0 0;.35 0;0 0;-.35 0;0 0" dur=".3s" repeatCount="indefinite" begin="${angry}" end="hit.click"/>`,
+    // 连点三下：跳起来
+    jump: `<animateTransform attributeName="transform" type="translate" values="0 0;0 -3;0 0;0 -1.6;0 0" keyTimes="0;.3;.55;.78;1" dur="1.1s" begin="hit3.click"/>`,
+    overlay:
+      `<rect width="0" height="0"><animate id="hwtimer" attributeName="x" values="0;0" begin="${start}" dur="${wait}s" repeatCount="2" end="hit.click"/></rect>` +
+      // 举起南瓜桶摇 + 头顶问号；生气时问号换成青筋、冒烟
+      `<g opacity="0">${showWhileAsking}` +
+      `<g transform="translate(13.6 1.4)"><g class="hw-beg">${PAIL}</g></g>` +
+      `<g><set attributeName="opacity" to="0" begin="${angry}"/><text x="14.6" y="-.4" class="hw-q">?</text></g>` +
+      `<g opacity="0">${showWhenAngry}` +
+      `<g class="hw-vein" transform="translate(15 -2.2)"><path d="M-.9-.3-.3-.3-.3-.9M.3-.9.3-.3.9-.3M.9.3.3.3.3.9M-.3.9-.3.3-.9.3" stroke="#E5484D" stroke-width=".38" fill="none" stroke-linecap="round"/></g>` +
+      `<circle class="hw-steam" cx="1.2" cy="-1.2" r=".7" fill="#C9C6BE"/><circle class="hw-steam" cx="14.6" cy="-.6" r=".6" fill="#C9C6BE" style="animation-delay:.5s"/>` +
+      `</g></g>` +
+      // 给糖：一颗糖掉进桶里
+      `<g opacity="0"><set attributeName="opacity" to="1" begin="hit.click" dur=".7s"/>` +
+      `<animateTransform attributeName="transform" type="translate" from="15.8 -3" to="15.8 4.8" dur=".6s" begin="hit.click" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines=".5 0 .8 .6"/>` +
+      `${CANDIES[0]}</g>` +
+      confetti,
+    hits:
+      `<rect id="hit3" ${HIT_RECT}/>` +
+      `<rect id="hit2" ${HIT_RECT}><set attributeName="visibility" to="hidden" begin="hit2.click" dur="${CLICK_WINDOW}"/></rect>` +
+      `<rect id="hit" ${HIT_RECT}><set attributeName="visibility" to="hidden" begin="hit.click" dur="${CLICK_WINDOW}"/></rect>`,
+  }
+}
+
 function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini = false, isChill = false, pet?: PetView): string {
-  const body = clawdBody(isStressed, pet?.level)
+  const isHalloween = pet?.halloween === true
+  const candy = isHalloween && !isWorking && pet?.askAgo !== undefined ? candyTimeline(pet.askAgo) : undefined
+  const body = clawdBody(isStressed, pet?.level, isHalloween, candy?.pail)
   // 头上戴了东西，干活时的小火花挪到头的左边，不跟帽子打架
-  const sparkAt = gearOf(pet?.level ?? 1).head ? '-1.2 -1.2' : '8 -2.6'
+  const sparkAt = isHalloween || gearOf(pet?.level ?? 1).head ? '-1.2 -1.2' : '8 -2.6'
+  // 讨糖时：第一下点击是给糖，第二下才空翻
+  const flipOn = candy ? 'hit2.click' : 'hit.click'
 
   const laptop = isWorking && !mini
     ? `<g class="laptop">` +
@@ -328,13 +440,17 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
       `<rect x="1.4" y="8.9" width="13.2" height=".9" rx=".3" fill="#55534D"/>` +
       `<rect x="1.4" y="8.9" width="13.2" height=".25" rx=".12" fill="#77746C"/>` +
       `</g>` +
-      [
-        ['{ }', 16.2, '0s'],
-        ['&lt;/&gt;', 17.4, '.8s'],
-        ['✓', 16.6, '1.6s'],
-      ]
-        .map(([glyph, x, delay]) => `<text x="${x}" y="4.2" class="glyph" style="animation-delay:${delay}">${glyph}</text>`)
-        .join('') +
+      (isHalloween
+        ? [16.6, 17.8, 17]
+            .map((x, k) => `<g transform="translate(${x} 3.4)"><g class="glyph" style="animation-delay:${k * 0.8}s">${CANDIES[k]}</g></g>`)
+            .join('')
+        : [
+            ['{ }', 16.2, '0s'],
+            ['&lt;/&gt;', 17.4, '.8s'],
+            ['✓', 16.6, '1.6s'],
+          ]
+            .map(([glyph, x, delay]) => `<text x="${x}" y="4.2" class="glyph" style="animation-delay:${delay}">${glyph}</text>`)
+            .join('')) +
       `<g transform="translate(${sparkAt})"><g class="spark-pulse"><g class="spark-spin">${spark(0, 0, 1.45, 0.5, '#E98D6E')}</g></g></g>`
     : ''
 
@@ -361,8 +477,8 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
 
     return (
       `<rect x="7.6" y="4.6" width=".8" height=".8" fill="${k % 2 ? '#F3B18F' : '#E98D6E'}" opacity="0">` +
-      `<animate attributeName="opacity" values="0;1;0" dur=".7s" begin="hit.click"/>` +
-      `<animateTransform attributeName="transform" type="translate" from="0 0" to="${dx} ${dy}" dur=".7s" begin="hit.click" calcMode="spline" keyTimes="0;1" keySplines=".2 .8 .2 1"/>` +
+      `<animate attributeName="opacity" values="0;1;0" dur=".7s" begin="${flipOn}"/>` +
+      `<animateTransform attributeName="transform" type="translate" from="0 0" to="${dx} ${dy}" dur=".7s" begin="${flipOn}" calcMode="spline" keyTimes="0;1" keySplines=".2 .8 .2 1"/>` +
       `</rect>`
     )
   }).join('')
@@ -376,15 +492,17 @@ function clawd(isWorking: boolean, isStressed: boolean, didChange: boolean, mini
     `<circle cx="8" cy="5" r="9.5" fill="url(#aura)" class="aura"/>` +
     `<g class="pace">` +
     `<ellipse cx="8" cy="9.75" rx="6.3" ry=".55" class="shadow ${didChange ? 'once' : isWorking ? '' : 'idle'}"/>` +
-    `<g class="spin"><animateTransform attributeName="transform" type="rotate" from="0 8 4.5" to="360 8 4.5" dur=".7s" begin="hit.click" calcMode="spline" keyTimes="0;1" keySplines=".3 .1 .2 1"/>` +
-    `<g class="${hopClass}"><g class="tremble"><g class="breath">${body}</g></g></g>` +
+    `<g class="spin"><animateTransform attributeName="transform" type="rotate" from="0 8 4.5" to="360 8 4.5" dur=".7s" begin="${flipOn}" calcMode="spline" keyTimes="0;1" keySplines=".3 .1 .2 1"/>` +
+    `<g>${candy?.jump ?? ''}<g>${candy?.stomp ?? ''}` +
+    `<g class="${hopClass}"><g class="tremble"><g class="breath">${body}${isHalloween && isWorking ? GHOST : ''}${candy?.face ?? ''}</g></g></g>` +
+    `</g></g>` +
     `</g>` +
     sweat +
     `</g>` +
     laptop +
     hearts +
     burst +
-    `<rect id="hit" x="-1.5" y="-4.5" width="19" height="15" fill="transparent"/>` +
+    (candy ? candy.overlay + candy.hits : `<rect id="hit" ${HIT_RECT}/>`) +
     `</g>`
   )
 }
@@ -439,7 +557,17 @@ const STYLE =
   `.clawd:hover .shadow{animation:bshadow .55s cubic-bezier(.3,.7,.4,1) infinite}` +
   `.clawd:hover .eyes,.clawd:hover .shades{opacity:0;animation:none}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
   `.clawd:hover .heart{animation:heart 1.35s ${OUT} infinite}}` +
-  `#hit{cursor:pointer}` +
+  `#hit,#hit2,#hit3{cursor:pointer}` +
+  // 万圣节：干活时南瓜桶收起来（手要敲电脑）；讨糖时桶摇、问号上下跳、青筋一跳一跳、头顶冒烟（细条太矮，问号和青筋会出上沿，不画）
+  `.working .hw-pail{opacity:0}.mini .hw-q,.mini .hw-vein{display:none}` +
+  `.hw-beg{transform-origin:50% 0;animation:beg .45s ease-in-out infinite alternate}` +
+  `.hw-q{font-size:3.2px;font-weight:800;fill:#F2C14E;animation:qbob .8s ease-in-out infinite alternate}` +
+  `.hw-vein{animation:vein .5s ease-in-out infinite alternate}` +
+  `.hw-steam{opacity:0;transform-origin:center;animation:steam 1s ease-out infinite}` +
+  `@keyframes beg{from{transform:rotate(-9deg)}to{transform:translateY(-.5px) rotate(9deg)}}` +
+  `@keyframes qbob{from{transform:none}to{transform:translateY(-.7px)}}` +
+  `@keyframes vein{from{transform:scale(.8)}to{transform:scale(1.15)}}` +
+  `@keyframes steam{0%{opacity:0;transform:scale(.4)}30%{opacity:.8}100%{opacity:0;transform:translateY(-2.6px) scale(1.3)}}` +
   // keyframes
   `@keyframes shadesCycle{0%,50%{transform:none}56%,80%{transform:translateY(-1.9px)}86%,100%{transform:none}}` +
   `@keyframes eyesPeek{0%,52%{opacity:0}56%,80%{opacity:1}84%,100%{opacity:0}}` +
@@ -473,7 +601,7 @@ const STYLE =
   `.track{stroke:#E8E5DC}.mtrack{fill:#E8E5DC}.sep{stroke:#E5E2D9}.mlab{fill:#77746C}.mval{fill:#2D2C2A}` +
   `.glow{opacity:.3}.chip.ok{fill:#C2603F}.chip.warn{fill:#B26E12}.chip.danger{fill:#D2392B}` +
   `.shadow{opacity:.16}@keyframes idleshadow{0%,86%,100%{transform:none;opacity:.16}92%{transform:scale(.6);opacity:.08}}` +
-  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}` +
+  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}.hw-q{fill:#C2603F}` +
   `#grad-ok stop+stop{stop-color:#EC9A78}#grad-warn stop+stop{stop-color:#F2B04E}#grad-danger stop+stop{stop-color:#F2705C}}`
 
 const DEFS =

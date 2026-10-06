@@ -25,6 +25,16 @@
         "en"
       ],
       "default": "auto"
+    },
+    "seasonal": {
+      "type": "string",
+      "title": "Seasonal costumes / 节日装扮",
+      "description": "auto dresses Clawd up for holidays (Halloween: Oct 25 to Nov 1) · auto 节日自动换装（万圣节：10 月 25 日到 11 月 1 日）",
+      "options": [
+        "auto",
+        "off"
+      ],
+      "default": "auto"
     }
   }
 }

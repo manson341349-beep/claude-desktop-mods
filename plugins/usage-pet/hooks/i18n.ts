@@ -61,6 +61,7 @@ export const T = {
     },
     levelUp: (level: number, gear?: string) => `⬆️ Clawd 升到 Lv.${level}！${gear ? `解锁：${gear}` : ''}`,
     unlocked: (name: string, how: string) => `🏅 成就解锁：${name}（${how}）`,
+    askCandy: 'Clawd 想要糖果 🍬 点他一下给糖',
     petTitle: (level: number, xp: number, next: number, streak: number) => `Clawd Lv.${level} · 经验 ${xp} / ${next} · 连续 ${streak} 天`,
     // 战报卡
     card: {
@@ -116,6 +117,7 @@ export const T = {
     },
     levelUp: (level: number, gear?: string) => `⬆️ Clawd reached Lv.${level}!${gear ? ` Unlocked: ${gear}` : ''}`,
     unlocked: (name: string, how: string) => `🏅 Achievement unlocked: ${name} (${how})`,
+    askCandy: 'Clawd wants candy 🍬 Click him to give some',
     petTitle: (level: number, xp: number, next: number, streak: number) => `Clawd Lv.${level} · XP ${xp} / ${next} · ${streak}-day streak`,
     card: {
       title: 'Clawd session report',

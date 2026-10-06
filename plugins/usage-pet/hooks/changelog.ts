@@ -6,6 +6,19 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.7.0',
+    notes: {
+      zh: [
+        '🎃 万圣节（10 月 25 日到 11 月 1 日）：Clawd 戴巫师帽、拎南瓜桶；Claude 干活时变幽灵，飘的是糖果',
+        '每答完一轮 Clawd 会讨糖：点他一下给糖，连点三下跳起来；12 秒不理他会生气（/config 里 seasonal 选 off 可关）',
+      ],
+      en: [
+        '🎃 Halloween (Oct 25 to Nov 1): Clawd wears a witch hat and carries a pumpkin pail; while Claude works he turns into a ghost and candy floats up',
+        'After each turn Clawd asks for candy: click him to give some, click three times and he jumps for joy; ignore him for 12 seconds and he gets grumpy (turn off with seasonal = off in /config)',
+      ],
+    },
+  },
+  {
     version: '1.6.0',
     notes: {
       zh: [

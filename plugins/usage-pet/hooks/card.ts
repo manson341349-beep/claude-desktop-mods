@@ -19,6 +19,8 @@ export type CardData = {
   pet: Pet
   // 这个会话里新解锁的成就
   earned: Achievement[]
+  // 万圣节装扮（巫师帽 + 南瓜桶）
+  halloween?: boolean
 }
 
 const esc = (s: string) => s.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
@@ -85,7 +87,7 @@ export function cardSvg(data: CardData, lang: Lang, canvas: CardCanvas = 'pane')
     `<rect x="24" y="24" width="208" height="312" rx="16" fill="#262624"/>` +
     // Clawd：一格 10px，头顶留 3 格给装扮
     `<ellipse cx="128" cy="196" rx="62" ry="5" fill="#000" opacity=".35"/>` +
-    `<g class="clawd${isChill ? ' chill' : ''}" transform="translate(48 100) scale(10)">${clawdBody(false, level)}</g>` +
+    `<g class="clawd${isChill ? ' chill' : ''}" transform="translate(48 100) scale(10)">${clawdBody(false, level, data.halloween)}</g>` +
     `<text x="44" y="252" class="lv">Lv.${level}</text>` +
     `<rect x="44" y="266" width="168" height="6" rx="3" fill="#3A3936"/>` +
     `<rect x="44" y="266" width="${Math.max(6, 168 * progress).toFixed(1)}" height="6" rx="3" fill="#D97757"/>` +

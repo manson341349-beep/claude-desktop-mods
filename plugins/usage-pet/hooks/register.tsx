@@ -6,7 +6,7 @@ import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
 import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T } from './i18n'
-import { type Achievement, levelOf, NEW_PET, normalize, onTurn, threshold } from './pet'
+import { type Achievement, isHalloween, levelOf, NEW_PET, normalize, onTurn, threshold } from './pet'
 
 const barsAtom = atom({ plugin: 'usage-pet', key: 'bars' } as const, { from: null, to: null } as Bars)
 
@@ -22,6 +22,10 @@ const EXPAND_MS = 5000
 const petAtom = atom({ plugin: 'usage-pet', key: 'pet' } as const, NEW_PET as Pet)
 const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], output: 0, earned: [] }
 const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
+// 万圣节讨糖：最近一次答完的时间（0 = 不讨糖）。等自动展开收起后再开始讨，讨 ASK_WINDOW_MS 内有效
+const askAtom = atom({ plugin: 'usage-pet', key: 'ask' } as const, 0)
+const ASK_DELAY_MS = EXPAND_MS + 1000
+const ASK_WINDOW_MS = 10 * 60000
 const PET_KEY = 'pet'
 const CARD_PANE = 'clawd-card'
 // 改文件的工具：战报里「改动文件」按它们的路径去重计数
@@ -164,10 +168,13 @@ async function record($: EngineInterface, snap: Snap) {
   $.clock.after(1300, () => void update($, barsAtom, bars => (sameSnap(bars.from, bars.to) ? bars : { from: bars.to, to: bars.to })))
 }
 
-function petView(pet: Pet, lang: Lang): PetView {
+function petView(pet: Pet, lang: Lang, halloween = false, askSince = 0): PetView {
   const level = levelOf(pet.xp)
+  const since = Date.now() - askSince - ASK_DELAY_MS
+  const askAgo = halloween && askSince > 0 && since < ASK_WINDOW_MS ? since / 1000 : undefined
+  const title = T[lang].petTitle(level, pet.xp, threshold(level + 1), pet.streak)
 
-  return { level, title: T[lang].petTitle(level, pet.xp, threshold(level + 1), pet.streak) }
+  return { level, title: askAgo === undefined ? title : `${T[lang].askCandy} · ${title}`, halloween, askAgo }
 }
 
 // 每答完一轮：从 store 读最新的（别的会话可能也在涨经验），算完写回，升级 / 成就弹提示
@@ -189,7 +196,7 @@ async function growPet($: EngineInterface, rate: number | undefined, lang: Lang)
   }
 }
 
-async function cardData($: EngineInterface): Promise<CardData> {
+async function cardData($: EngineInterface, seasonal: boolean): Promise<CardData> {
   const r = await read($, reportAtom)
   const c = await read($, cacheAtom)
 
@@ -203,6 +210,7 @@ async function cardData($: EngineInterface): Promise<CardData> {
     cacheRate: cacheStat(c)?.rate,
     pet: await read($, petAtom),
     earned: r.earned as Achievement[],
+    halloween: seasonal && isHalloween(new Date()),
   }
 }
 
@@ -257,6 +265,8 @@ async function exportCard($: EngineInterface, data: CardData, lang: Lang): Promi
 
 export const register: Register = (on, options) => {
   const choice = (options?.language ?? 'auto') as LangChoice
+  // 节日装扮：/config 里 seasonal 选 off 就不换
+  const seasonal = options?.seasonal !== 'off'
 
   on('session.start', async ($, e, next) => {
     // 先定语言（更新提示要用）；读不出来就英文
@@ -334,6 +344,9 @@ export const register: Register = (on, options) => {
     }
     if (e.agentId === undefined) {
       await update($, reportAtom, r => ({ ...r, turns: r.turns + 1, output: r.output + (u?.output_tokens ?? 0) }))
+      if (seasonal && isHalloween(new Date()) && !e.isAborted) {
+        await update($, askAtom, () => Date.now())
+      }
       try {
         await growPet($, u ? turnRate(u) : undefined, await langOf($, choice))
       } catch (err) {
@@ -363,14 +376,14 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'clawd-card' }, async $ => {
     const lang = await langOf($, choice)
     await $.ui.open({ id: CARD_PANE, title: T[lang].card.title })
-    const out = await exportCard($, await cardData($), lang)
+    const out = await exportCard($, await cardData($, seasonal), lang)
 
     return { text: 'path' in out ? T[lang].cardSaved(out.path) : T[lang].cardOnlyShown(out.error) }
   })
 
   on('ui.render', { component: 'Pane', requestId: CARD_PANE }, async ($, e) => {
     const lang = await langOf($, choice)
-    const data = await cardData($)
+    const data = await cardData($, seasonal)
     if (e.surface === 'terminal') {
       const { Text } = $.ui.resolve(e)
 
@@ -405,7 +418,7 @@ export const register: Register = (on, options) => {
 
     const bars = await read($, barsAtom)
     const lang = await langOf($, choice)
-    const pet = petView(await read($, petAtom), lang)
+    const pet = petView(await read($, petAtom), lang, seasonal && isHalloween(new Date()), await read($, askAtom))
 
     // 桌面端的 Client 在 2.1.286 上一律 10 秒超时（缺 CSP nonce，同见 #99211），所以桌面只用 Svg
     if (e.surface === 'desktop') {
