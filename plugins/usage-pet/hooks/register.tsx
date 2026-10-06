@@ -170,9 +170,20 @@ async function record($: EngineInterface, snap: Snap) {
   $.clock.after(1300, () => void update($, barsAtom, bars => (sameSnap(bars.from, bars.to) ? bars : { from: bars.to, to: bars.to })))
 }
 
-function petView(pet: Pet, lang: Lang, halloween = false, askSince = 0): PetView {
+// 万圣节的日期和讨糖计时读插件时钟：测试用 mock.clock 把日期拨到万圣节前后。
+// 测试里没装时钟时退回系统时间（正式运行时时钟一直在）
+async function clockNow($: EngineInterface): Promise<number> {
+  try {
+    return await $.clock.now()
+  } catch {
+    return Date.now()
+  }
+}
+
+// now 来自 $.clock.now()：测试里能把日期拨到万圣节前后
+function petView(pet: Pet, lang: Lang, halloween = false, askSince = 0, now = 0): PetView {
   const level = levelOf(pet.xp)
-  const since = Date.now() - askSince - ASK_DELAY_MS
+  const since = now - askSince - ASK_DELAY_MS
   const askAgo = halloween && askSince > 0 && since < ASK_WINDOW_MS ? since / 1000 : undefined
   const title = T[lang].petTitle(level, pet.xp, threshold(level + 1), pet.streak)
 
@@ -212,7 +223,7 @@ async function cardData($: EngineInterface, seasonal: boolean): Promise<CardData
     cacheRate: cacheStat(c)?.rate,
     pet: await read($, petAtom),
     earned: r.earned as Achievement[],
-    halloween: seasonal && isHalloween(new Date()),
+    halloween: seasonal && isHalloween(new Date(await clockNow($))),
   }
 }
 
@@ -267,8 +278,8 @@ async function exportCard($: EngineInterface, data: CardData, lang: Lang): Promi
 
 export const register: Register = (on, options) => {
   const choice = (options?.language ?? 'auto') as LangChoice
-  // 节日装扮：/config 里 seasonal 选 off 就不换
-  const seasonal = options?.seasonal !== 'off'
+  // 节日装扮：/config 里 seasonal 填 off 就不换（不分大小写、去掉首尾空格；以前是下拉，现在是文本框）
+  const seasonal = String(options?.seasonal ?? 'auto').trim().toLowerCase() !== 'off'
 
   on('session.start', async ($, e, next) => {
     // 先定语言（更新提示要用）；读不出来就英文
@@ -346,8 +357,9 @@ export const register: Register = (on, options) => {
     }
     if (e.agentId === undefined) {
       await update($, reportAtom, r => ({ ...r, turns: r.turns + 1, output: r.output + (u?.output_tokens ?? 0) }))
-      if (seasonal && isHalloween(new Date()) && !e.isAborted) {
-        await update($, askAtom, () => Date.now())
+      const now = await clockNow($)
+      if (seasonal && isHalloween(new Date(now)) && !e.isAborted) {
+        await update($, askAtom, () => now)
       }
       try {
         await growPet($, u ? turnRate(u) : undefined, await langOf($, choice))
@@ -420,7 +432,8 @@ export const register: Register = (on, options) => {
 
     const bars = await read($, barsAtom)
     const lang = await langOf($, choice)
-    const pet = petView(await read($, petAtom), lang, seasonal && isHalloween(new Date()), await read($, askAtom))
+    const now = await clockNow($)
+    const pet = petView(await read($, petAtom), lang, seasonal && isHalloween(new Date(now)), await read($, askAtom), now)
 
     // 桌面端的 Client 在 2.1.286 上一律 10 秒超时（缺 CSP nonce，同见 #99211），所以桌面只用 Svg
     if (e.surface === 'desktop') {
@@ -456,11 +469,8 @@ export const register: Register = (on, options) => {
     if (e.surface === 'terminal') {
       const { Box, Client } = $.ui.resolve(e)
 
-      return (
-        <Box paddingX={1}>
-          <Client key="stats" module="./stats.tsx" props={{ snap: bars.to, lang }} flexGrow={1} />
-        </Box>
-      )
+      // 写成函数调用、路径是固定字符串：目录的扫描器读不出 JSX 里的 module
+      return <Box paddingX={1}>{Client({ key: 'stats', module: './stats.tsx', props: { snap: bars.to, lang }, flexGrow: 1 })}</Box>
     }
 
     return next(e)

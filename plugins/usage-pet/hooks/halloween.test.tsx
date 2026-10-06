@@ -110,9 +110,11 @@ const TURN = {
 }
 
 type Harness = Parameters<Parameters<typeof test>[1]>
-async function bandAfterTurn($: Harness[0], on: Harness[1], turn = TURN) {
+// 把插件的时钟拨到指定的本机日期（默认 10 月 26 日下午，万圣节期间）
+const OCT_26 = new Date(2026, 9, 26, 14).getTime()
+async function bandAfterTurn($: Harness[0], on: Harness[1], turn = TURN, now = OCT_26) {
   mock.store(on, { lastSeenVersion: CHANGELOG[0].version })
-  mock.clock(on)
+  mock.clock(on, { now })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: [] } }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
@@ -125,19 +127,18 @@ async function bandAfterTurn($: Harness[0], on: Harness[1], turn = TURN) {
   return String((await ui.findAll({ type: 'Svg' }))[0].props?.source)
 }
 
-// 这条随本机日期走：万圣节期间跑验证「会讨糖」，别的月份验证「不讨糖」——两种情况都是明确断言，不跳过
-test('答完一轮：万圣节期间等收起后开始讨糖（悬停提示点他给糖），其余日子不讨', { options: { language: 'zh' } }, async ($, on) => {
+test('答完一轮（10 月 26 日）：等收起后开始讨糖，悬停提示点他给糖', { options: { language: 'zh' } }, async ($, on) => {
   const svg = await bandAfterTurn($, on)
-  if (isHalloween(new Date())) {
-    expect(svg).toContain(WITCH)
-    const begin = Number(svg.match(/id="hwtimer"[^>]*begin="([\d.]+)s"/)?.[1])
-    expect(begin).toBeGreaterThan(5)
-    expect(begin).toBeLessThanOrEqual(6)
-    expect(svg).toContain('<title>Clawd 想要糖果 🍬 点他一下给糖 · Clawd Lv.1')
-  } else {
-    expect(svg).not.toContain(WITCH)
-    expect(svg).not.toContain('hwtimer')
-  }
+  expect(svg).toContain(WITCH)
+  // 刚答完：讨糖在 6 秒后开始（5 秒自动展开收起 + 1 秒）
+  expect(svg).toContain('<animate id="hwtimer" attributeName="x" values="0;0" begin="6.00s" dur="12.00s"')
+  expect(svg).toContain('<title>Clawd 想要糖果 🍬 点他一下给糖 · Clawd Lv.1')
+})
+
+test('不在万圣节（10 月 10 日）：不换装、不讨糖', { options: { language: 'zh' } }, async ($, on) => {
+  const svg = await bandAfterTurn($, on, TURN, new Date(2026, 9, 10, 14).getTime())
+  expect(svg).not.toContain(WITCH)
+  expect(svg).not.toContain('hwtimer')
 })
 
 test('答完一轮但被中断：不讨糖', { options: { language: 'zh' } }, async ($, on) => {
@@ -145,6 +146,12 @@ test('答完一轮但被中断：不讨糖', { options: { language: 'zh' } }, as
 })
 
 test('/config 里 seasonal = off：不换装、不讨糖', { options: { language: 'zh', seasonal: 'off' } }, async ($, on) => {
+  const svg = await bandAfterTurn($, on)
+  expect(svg).not.toContain(WITCH)
+  expect(svg).not.toContain('hwtimer')
+})
+
+test('seasonal 现在是文本框：手打的 " OFF " 也算关掉', { options: { language: 'zh', seasonal: ' OFF ' } }, async ($, on) => {
   const svg = await bandAfterTurn($, on)
   expect(svg).not.toContain(WITCH)
   expect(svg).not.toContain('hwtimer')

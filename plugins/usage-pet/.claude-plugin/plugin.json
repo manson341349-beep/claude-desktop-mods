@@ -18,22 +18,13 @@
     "language": {
       "type": "string",
       "title": "Language / 语言",
-      "description": "auto follows your system language · auto 跟随系统语言",
-      "options": [
-        "auto",
-        "zh",
-        "en"
-      ],
+      "description": "auto follows your system language; or type zh or en · auto 跟随系统语言，也可以填 zh 或 en",
       "default": "auto"
     },
     "seasonal": {
       "type": "string",
       "title": "Seasonal costumes / 节日装扮",
-      "description": "auto dresses Clawd up for holidays (Halloween: Oct 25 to Nov 1) · auto 节日自动换装（万圣节：10 月 25 日到 11 月 1 日）",
-      "options": [
-        "auto",
-        "off"
-      ],
+      "description": "auto dresses Clawd up for holidays (Halloween: Oct 25 to Nov 1); type off to turn it off · auto 节日自动换装（万圣节：10 月 25 日到 11 月 1 日），填 off 关闭",
       "default": "auto"
     }
   }
