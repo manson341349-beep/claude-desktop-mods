@@ -13,6 +13,7 @@ Each item: what you see → why → what to do.
 - **Why**: on 2.1.286 every desktop `Client` frame times out — a missing CSP nonce ([anthropics/claude-code#99211](https://github.com/anthropics/claude-code/issues/99211)).
 - **Do**: draw on desktop with `Svg` (plus CSS/SMIL animation inside it). Keep `Client` for the terminal.
 - 桌面端改用 `Svg`，动画写在 SVG 里；`Client` 只给终端用。
+- **Directory submissions**: Anthropic's plugin directory scanner refused our terminal `Client` (`MOD_IMPORT_DYNAMIC_COMPUTED`, "path is not a fixed string") even with `module: './stats.tsx'` written as a literal, in JSX and as a call. usage-pet now draws the terminal meters with plain `Box`/`Text` and has no `Client` at all. 提交官方目录时扫描器不认 `Client` 的路径（写成字符串常量也不行），终端改用 `Box`/`Text` 直接画。
 
 ## 2. `Svg` shows up as a small white box · `Svg` 变成一个白色小框
 

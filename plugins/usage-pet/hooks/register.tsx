@@ -2,10 +2,10 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
 import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
-import { bandAlt, bandSvg, H, H_MINI, type PetView } from './band'
+import { bandAlt, bandSvg, H, H_MINI, type PetView, tokensText } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
-import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T } from './i18n'
+import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T, weekday } from './i18n'
 import { type Achievement, isHalloween, levelOf, NEW_PET, normalize, onTurn, threshold } from './pet'
 
 const barsAtom = atom({ plugin: 'usage-pet', key: 'bars' } as const, { from: null, to: null } as Bars)
@@ -168,6 +168,25 @@ async function record($: EngineInterface, snap: Snap) {
     await expandForAWhile($)
   }
   $.clock.after(1300, () => void update($, barsAtom, bars => (sameSnap(bars.from, bars.to) ? bars : { from: bars.to, to: bars.to })))
+}
+
+// 终端读数：进度条颜色、重置时间（24 小时内写剩余多久，否则写周几几点）
+function termBarColor(percent: number): string {
+  return percent >= 95 ? '#E5484D' : percent >= 80 ? '#E8913A' : '#3B7BF0'
+}
+
+function termReset(resetsAt: string | undefined, lang: Lang): string {
+  if (!resetsAt) {
+    return ''
+  }
+  const at = Date.parse(resetsAt)
+  const minutes = Math.max(0, Math.round((at - Date.now()) / 60000))
+  if (minutes < 24 * 60) {
+    return T[lang].left(minutes < 60 ? minutes : Math.floor(minutes / 60), minutes < 60 ? 'm' : 'hm', minutes % 60)
+  }
+  const d = new Date(at)
+
+  return T[lang].resetDay(weekday(lang, d.getDay()), `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`)
 }
 
 // 万圣节的日期和讨糖计时读插件时钟：测试用 mock.clock 把日期拨到万圣节前后。
@@ -467,10 +486,40 @@ export const register: Register = (on, options) => {
     }
 
     if (e.surface === 'terminal') {
-      const { Box, Client } = $.ui.resolve(e)
+      const { Box, Text } = $.ui.resolve(e)
+      const snap = bars.to
+      const t = T[lang]
+      // 终端只画三个读数：标签、右侧注释和百分比，下面一条进度条。
+      // 以前用 Client 加载 stats.tsx 做数字滚动，但 Anthropic 插件目录的扫描器认不出它的路径、拦下提交，所以改成直接画
+      const meter = (key: string, label: string, percent: number | undefined, note: string) => {
+        const p = Math.min(100, Math.max(0, percent ?? 0))
 
-      // 写成函数调用、路径是固定字符串：目录的扫描器读不出 JSX 里的 module
-      return <Box paddingX={1}>{Client({ key: 'stats', module: './stats.tsx', props: { snap: bars.to, lang }, flexGrow: 1 })}</Box>
+        return (
+          <Box key={key} flexDirection="column" flexGrow={1} flexShrink={1} minWidth={18}>
+            <Box flexDirection="row" justifyContent="space-between" columnGap={1}>
+              <Text wrap="truncate">{label}</Text>
+              <Box flexDirection="row" columnGap={1}>
+                <Text dimColor wrap="truncate">
+                  {note}
+                </Text>
+                <Text>{percent === undefined ? '—' : `${Math.round(percent)}%`}</Text>
+              </Box>
+            </Box>
+            <Box width="100%" height={1} backgroundColor="#80808033">
+              <Box width={`${Math.round(p)}%`} height={1} backgroundColor={termBarColor(p)} />
+            </Box>
+          </Box>
+        )
+      }
+      const ctxNote = snap?.contextTokens !== undefined ? `${tokensText(snap.contextTokens)} / ${tokensText(snap.contextWindow)}` : ''
+
+      return (
+        <Box paddingX={1} flexDirection="row" columnGap={3}>
+          {meter('ctx', t.context, snap?.contextPercent, ctxNote)}
+          {meter('session', t.session, snap?.session?.percent, termReset(snap?.session?.resetsAt, lang))}
+          {meter('weekly', t.weekly, snap?.weekly?.percent, termReset(snap?.weekly?.resetsAt, lang))}
+        </Box>
+      )
     }
 
     return next(e)

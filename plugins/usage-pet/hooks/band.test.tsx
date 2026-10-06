@@ -22,18 +22,15 @@ const measure = (ctx: number, session: number, weekly: number) => ({
 const svgOf = async (ui: { findAll: (q: { type: 'Svg' }) => Promise<{ props?: Record<string, unknown> }[]> }) =>
   (await ui.findAll({ type: 'Svg' }))[0]
 
-test('终端：Client 里数字从 0 缓动到真实值', ZH, async ($, on) => {
+test('终端：直接画三个读数（不用 Client），数字、token 和进度条都在', ZH, async ($, on) => {
   on('session.measure', ($, e) => ({ changed: e.changed }))
   await $.session.measure(measure(42, 8, 63))
 
   const ui = await $.ui.mount({ ...BAND(false), surface: 'terminal' })
-  await ui.resize({ columns: 120, rows: 2, in: 'stats' })
-  const early = await ui.findAll({ type: 'Text', text: /%$/, in: 'stats' })
-  expect(early.map(t => t.text)).not.toEqual(['42%', '8%', '63%'])
-  await ui.advance(1200)
-  const settled = await ui.findAll({ type: 'Text', text: /%$/, in: 'stats' })
-  expect(settled.map(t => t.text)).toEqual(['42%', '8%', '63%'])
-  expect(await ui.find({ type: 'Text', text: '84k / 200k', in: 'stats' })).toBeDefined()
+  const percents = await ui.findAll({ type: 'Text', text: /%$/ })
+  expect(percents.map(t => t.text)).toEqual(['42%', '8%', '63%'])
+  expect(await ui.find({ type: 'Text', text: '84k / 200k' })).toBeDefined()
+  expect(await ui.findAll({ type: 'Client' })).toEqual([])
 })
 
 test('桌面：一张显式宽高、自带底色的 SVG；变化时有扫环、滚数字、+N%、Clawd 跳，播完收成静止', ZH, async ($, on) => {
