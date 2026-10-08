@@ -96,17 +96,21 @@ function textWidth(text: string, size: number): number {
 
 // 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题、副标题、悬停时换上的详情三行里最长的那行
 // （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
+// 缓存倒计时的字号：比标题（12）和副标题（10.5）都小，只当旁注
+const TIMER_SIZE = 9
 // 标题右边的缓存倒计时留宽：最长的那一档（60m / 60分 / cold / 已过期）
 let timerLang: Lang = 'zh'
 const timerWidth = (g: Gauge, size: number) =>
   g.timerMs === undefined ? 0 : 6 + Math.max(textWidth(T[timerLang].cacheLeft(60), size), textWidth(T[timerLang].cacheCold, size))
 const contentWidth = (g: Gauge) =>
-  2 * R + 4 + 10 + Math.max(textWidth(g.label, 12) + timerWidth(g, 10.5), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
+  2 * R + 4 + 10 + Math.max(textWidth(g.label, 12) + timerWidth(g, TIMER_SIZE), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
 
 // 缓存倒计时：插件不能每分钟重画（重画会让所有动画从头播），所以把每一分钟的数字都画好，
 // 用 SMIL 按时间轮流显示：剩 m 分钟那一个在 [剩余-m 分, 剩余-(m-1) 分) 这段时间可见，最后换成「已过期」
-function cacheTimerSvg(x: number, y: number, remainMs: number, lang: Lang, size: number): string {
+// beside：旁边那段文字的字号。字小一号时和它共用底线会显得偏下，所以按两段文字的中线对齐（字母、数字的中线约在底线上 0.36em）
+function cacheTimerSvg(x: number, baseline: number, remainMs: number, lang: Lang, size: number, beside: number): string {
   const t = T[lang]
+  const y = (baseline - (beside - size) * 0.36).toFixed(2)
   const at = (ms: number) => `${Math.max(0, ms / 1000).toFixed(2)}s`
   const style = `font-size:${size}px`
   if (remainMs <= 0) {
@@ -139,7 +143,7 @@ const blockWidth = (g: Gauge, layout: Layout) =>
   layout === 'full'
     ? contentWidth(g)
     : layout === 'compact'
-      ? 2 * R + 4 + 10 + textWidth(g.label, 12) + timerWidth(g, 10.5)
+      ? 2 * R + 4 + 10 + textWidth(g.label, 12) + timerWidth(g, TIMER_SIZE)
       : layout === 'stacked'
         ? Math.max(2 * R + 4, textWidth(g.label, STACKED_LABEL))
         : 2 * R + 4
@@ -252,12 +256,12 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
     `</g>` +
     (layout === 'full'
       ? `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
-        (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 29, g.timerMs, lang, 10.5)) +
+        (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 29, g.timerMs, lang, TIMER_SIZE, 12)) +
         `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` +
         `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`
       : layout === 'compact'
         ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>` +
-          (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 36, g.timerMs, lang, 10.5))
+          (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 36, g.timerMs, lang, TIMER_SIZE, 12))
         : layout === 'stacked'
           ? `<text x="${cx}" y="56" text-anchor="middle" class="lab stk">${g.label}</text>`
           : '') +
@@ -663,7 +667,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
       const labelW = showLabel ? textWidth(label, 11) : 0
       const valueW = textWidth(value, 11.5) * 1.05
 
-      return { g, value, label, labelW, valueW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW + timerWidth(g, 10.5) }
+      return { g, value, label, labelW, valueW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW + timerWidth(g, TIMER_SIZE) }
     })
   // 间距至少 24px：Clawd 干活时会往右跑 20px，不能撞上第一项
   const fits = (list: { w: number }[]) => 2 * MINI_X + MINI_W + list.reduce((a, b) => a + b.w, 0) + list.length * 24 <= width
@@ -684,7 +688,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
           ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${fill}" height="3" rx="1.5" fill="url(#grad-${t})" class="mfill ${t}"/>`
           : '') +
         `<text x="${(barX + (showBar ? MINI_BAR + 8 : 0)).toFixed(1)}" y="19" class="mval">${value}</text>` +
-        (g.timerMs === undefined ? '' : cacheTimerSvg(barX + (showBar ? MINI_BAR + 8 : 0) + valueW + 6, 19, g.timerMs, lang, 10.5)) +
+        (g.timerMs === undefined ? '' : cacheTimerSvg(barX + (showBar ? MINI_BAR + 8 : 0) + valueW + 6, 19, g.timerMs, lang, TIMER_SIZE, 11.5)) +
         `</g>`,
     )
     x += w + gap

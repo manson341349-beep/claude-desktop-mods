@@ -30,7 +30,7 @@ test('缓存倒计时：中文、收起的细条上也有，已过期直接显�
   expect(visibleFrom(zh, '4分')?.[1]).toBe('0.00')
   expect(zh).toContain('缓存从上次回复起保持约 5 分钟')
   const cold = bandSvg(BARS, false, 1100, false, 'zh', undefined, { remainMs: -1000, ttlMs: HOUR })
-  expect(cold).toContain('class="tm cold" style="font-size:10.5px">已过期</text>')
+  expect(cold).toContain('class="tm cold" style="font-size:9px">已过期</text>')
 })
 
 test('缓存倒计时：Claude 干活时、还没答过时不显示', () => {
@@ -41,11 +41,13 @@ test('缓存倒计时：Claude 干活时、还没答过时不显示', () => {
 test('缓存倒计时：这一块按「标题 + 倒计时」留宽，不压到后面的分隔线', () => {
   const svg = bandSvg(BARS, false, 1100, false, 'en', undefined, { remainMs: HOUR, ttlMs: HOUR })
   // 倒计时文字的 x 在缓存那一块里（块是最后一块，后面没有分隔线，检查不出右边界）
-  const x = Number(svg.match(/<text x="([\d.]+)" y="29" class="tm/)?.[1])
+  // 字比标题小，按中线对齐：底线比标题（y=29）高 (12-9)×0.36 = 1.08px
+  const x = Number(svg.match(/<text x="([\d.]+)" y="27.92" class="tm/)?.[1])
   const lab = Number(svg.match(/<text x="([\d.]+)" y="29" class="lab">Cache hit</)?.[1])
   expect(x).toBeGreaterThan(lab + 40)
-  // 最宽的一档是「cold」：4 个小写字母 × 0.58 × 10.5px ≈ 24.4px；右边要留出和左边一样的 22px
-  expect(x + 4 * 0.58 * 10.5).toBeLessThanOrEqual(1100 - 22)
+  // 最宽的一档是「cold」：4 个小写字母 × 0.58 × 9px ≈ 20.9px；右边要留出和左边一样的 22px
+  expect(x + 4 * 0.58 * 9).toBeLessThanOrEqual(1100 - 22)
+  expect(svg).toContain('style="font-size:9px"')
 })
 
 // ───────── 接进插件：答完一轮开始倒计时 ─────────
