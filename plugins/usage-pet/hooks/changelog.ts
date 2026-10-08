@@ -6,6 +6,13 @@ export type Release = { version: string; notes: Record<Lang, string[]> }
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.8.0',
+    notes: {
+      zh: ['缓存倒计时：缓存命中旁边显示缓存还热多久（订阅约 1 小时、API 密钥 5 分钟，每次回复重新计时），剩 5 分钟变色，过期显示「已过期」——赶在过期前回复更省额度'],
+      en: ['Cache countdown next to Cache hit: how long the cache stays warm (about 1 hour on a subscription, 5 minutes on an API key; every reply restarts it). It turns amber in the last 5 minutes and says "cold" once expired, so you can reply before it does'],
+    },
+  },
+  {
     version: '1.7.0',
     notes: {
       zh: [

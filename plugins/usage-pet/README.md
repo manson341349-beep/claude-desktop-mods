@@ -9,6 +9,7 @@ A usage band above the prompt in the **Code tab of Claude Desktop**: context, 5-
 ## What it does
 
 - **Four meters, one glance**: context window, 5-hour limit, weekly limit (with reset times) and cache hit rate. Hover a ring for exact numbers.
+- **Cache countdown**: next to Cache hit, how long the prompt cache stays warm after the last reply (about 1 hour on a subscription, 5 minutes on an API key). It turns amber in the last 5 minutes and says "cold" once expired.
 - **Clawd reacts**: he types on a tiny laptop while Claude works, sweats when a limit is above 90%, and puts on sunglasses when the cache hit rate is 90% or more. Hover him for hearts, click him for a flip.
 - **Growth**: Clawd earns XP for every reply, levels up (sprout, bow tie, cap, crown) and unlocks 8 achievements. Progress is kept across sessions.
 - **Report card**: `/clawd-card` draws a card of the session (duration, turns, tool calls, files edited, tokens, cache hit, level) and saves it as a PNG you can paste anywhere.
@@ -46,7 +47,7 @@ Then run `/reload-plugins` or start a new session.
 The mod is one hooks module, `hooks/register.tsx`. Its hooks on Claude Code's own events only watch them and pass them on unchanged; it answers only its own two commands and draws only its own band and pane:
 
 - `session.start` and `session.attach`: register `/clawd` and `/clawd-card`, detect the language, read Clawd's progress from the local store, and show the release notes toast once after an update.
-- `session.measure` and `turn.complete`: read the usage numbers to redraw the band, add XP after each reply of the main conversation (not subagents), and start the Halloween candy animation in season.
+- `session.measure` and `turn.complete`: read the usage numbers to redraw the band, add XP after each reply of the main conversation (not subagents), note when that reply finished for the cache countdown (kept for the session only), and start the Halloween candy animation in season.
 - `tool.call`: counts tool calls and remembers which files Edit, Write, MultiEdit and NotebookEdit touched, for the report card. It always calls `next` with the call unchanged and never denies or answers a tool call.
 - `command.run` for `/clawd` (toggle the band) and `/clawd-card` (open the card pane and export the PNG).
 - `ui.render` for the band above the prompt and the card pane.

@@ -96,7 +96,39 @@ function textWidth(text: string, size: number): number {
 
 // 一块内容的实际宽度：圆环（含线宽）+ 间隔 + 标题、副标题、悬停时换上的详情三行里最长的那行
 // （只算副标题的话，悬停详情比副标题长就会压到分隔线、或被信息栏右边裁掉）
-const contentWidth = (g: Gauge) => 2 * R + 4 + 10 + Math.max(textWidth(g.label, 12), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
+// 标题右边的缓存倒计时留宽：最长的那一档（60m / 60分 / cold / 已过期）
+let timerLang: Lang = 'zh'
+const timerWidth = (g: Gauge, size: number) =>
+  g.timerMs === undefined ? 0 : 6 + Math.max(textWidth(T[timerLang].cacheLeft(60), size), textWidth(T[timerLang].cacheCold, size))
+const contentWidth = (g: Gauge) =>
+  2 * R + 4 + 10 + Math.max(textWidth(g.label, 12) + timerWidth(g, 10.5), textWidth(g.sub, 10.5), textWidth(g.detail, 10.5))
+
+// 缓存倒计时：插件不能每分钟重画（重画会让所有动画从头播），所以把每一分钟的数字都画好，
+// 用 SMIL 按时间轮流显示：剩 m 分钟那一个在 [剩余-m 分, 剩余-(m-1) 分) 这段时间可见，最后换成「已过期」
+function cacheTimerSvg(x: number, y: number, remainMs: number, lang: Lang, size: number): string {
+  const t = T[lang]
+  const at = (ms: number) => `${Math.max(0, ms / 1000).toFixed(2)}s`
+  const style = `font-size:${size}px`
+  if (remainMs <= 0) {
+    return `<text x="${x.toFixed(1)}" y="${y}" class="tm cold" style="${style}">${t.cacheCold}</text>`
+  }
+  const total = Math.ceil(remainMs / 60000)
+  const minutes = Array.from({ length: total }, (_, k) => {
+    const m = total - k
+    const begin = at(remainMs - m * 60000)
+    const end = at(remainMs - (m - 1) * 60000)
+
+    return (
+      `<text x="${x.toFixed(1)}" y="${y}" class="tm${m <= 5 ? ' warn' : ''}" style="${style}" opacity="0">` +
+      `<set attributeName="opacity" to="1" begin="${begin}" end="${end}"/>${t.cacheLeft(m)}</text>`
+    )
+  }).join('')
+
+  return (
+    minutes +
+    `<text x="${x.toFixed(1)}" y="${y}" class="tm cold" style="${style}" opacity="0"><set attributeName="opacity" to="1" begin="${at(remainMs)}" fill="freeze"/>${t.cacheCold}</text>`
+  )
+}
 
 // 窗口窄的时候逐级收：full（圆环 + 标题 + 副标题）→ compact（圆环 + 标题）→ stacked（圆环上移、小字标题放在圆环下面）
 // → rings（只有圆环）。收掉的文字都还在每块的悬停提示（<title>）里。
@@ -107,7 +139,7 @@ const blockWidth = (g: Gauge, layout: Layout) =>
   layout === 'full'
     ? contentWidth(g)
     : layout === 'compact'
-      ? 2 * R + 4 + 10 + textWidth(g.label, 12)
+      ? 2 * R + 4 + 10 + textWidth(g.label, 12) + timerWidth(g, 10.5)
       : layout === 'stacked'
         ? Math.max(2 * R + 4, textWidth(g.label, STACKED_LABEL))
         : 2 * R + 4
@@ -132,6 +164,8 @@ type Gauge = {
   title: string
   from?: number
   to?: number
+  // 缓存倒计时：离缓存过期还有多少毫秒（≤0 = 已过期，undefined = 不显示）
+  timerMs?: number
 }
 
 const off = (p: number | undefined) => (C * (1 - Math.min(100, Math.max(0, p ?? 0)) / 100)).toFixed(2)
@@ -177,7 +211,7 @@ function odometer(g: Gauge, i: number, cx: number, cy: number, isChanged: boolea
   return digits + (isWide ? '' : `<text x="${(left + s.length * dig + 0.5).toFixed(1)}" y="${cy + 3.8}" class="pct">%</text>`)
 }
 
-function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[], layout: Layout = 'full'): string {
+function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, isFirst: boolean, css: string[], layout: Layout = 'full', lang: Lang = 'zh'): string {
   // stacked：圆环在这一块里居中、往上挪，给下面的小字标题让位
   const cx = layout === 'stacked' ? x + w / 2 : x + R + 2
   const cy = layout === 'stacked' ? 25 : 32
@@ -218,10 +252,12 @@ function gauge(g: Gauge, i: number, x: number, w: number, isChanged: boolean, is
     `</g>` +
     (layout === 'full'
       ? `<text x="${cx + R + 10}" y="29" class="lab">${g.label}</text>` +
+        (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 29, g.timerMs, lang, 10.5)) +
         `<text x="${cx + R + 10}" y="43" class="sub">${g.sub}</text>` +
         `<text x="${cx + R + 10}" y="43" class="sub2">${g.detail}</text>`
       : layout === 'compact'
-        ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>`
+        ? `<text x="${cx + R + 10}" y="36" class="lab">${g.label}</text>` +
+          (g.timerMs === undefined ? '' : cacheTimerSvg(cx + R + 10 + textWidth(g.label, 12) + 6, 36, g.timerMs, lang, 10.5))
         : layout === 'stacked'
           ? `<text x="${cx}" y="56" text-anchor="middle" class="lab stk">${g.label}</text>`
           : '') +
@@ -558,6 +594,8 @@ const STYLE =
   `.clawd:hover .eyes,.clawd:hover .shades{opacity:0;animation:none}.clawd:hover .happy{opacity:1}.clawd:hover .cheek{opacity:.9}` +
   `.clawd:hover .heart{animation:heart 1.35s ${OUT} infinite}}` +
   `#hit,#hit2,#hit3{cursor:pointer}` +
+  // 缓存倒计时：平时淡橙，剩 5 分钟内橙黄，过期灰
+  `.tm{font-weight:600;fill:#F3B18F;font-variant-numeric:tabular-nums}.tm.warn{fill:#FFCB7A}.tm.cold{fill:#6E6C66;font-weight:500}` +
   // 万圣节：干活时南瓜桶收起来（手要敲电脑）；讨糖时桶摇、问号上下跳、青筋一跳一跳、头顶冒烟（细条太矮，问号和青筋会出上沿，不画）
   `.working .hw-pail{opacity:0}.mini .hw-q,.mini .hw-vein{display:none}` +
   `.hw-beg{transform-origin:50% 0;animation:beg .45s ease-in-out infinite alternate}` +
@@ -601,7 +639,7 @@ const STYLE =
   `.track{stroke:#E8E5DC}.mtrack{fill:#E8E5DC}.sep{stroke:#E5E2D9}.mlab{fill:#77746C}.mval{fill:#2D2C2A}` +
   `.glow{opacity:.3}.chip.ok{fill:#C2603F}.chip.warn{fill:#B26E12}.chip.danger{fill:#D2392B}` +
   `.shadow{opacity:.16}@keyframes idleshadow{0%,86%,100%{transform:none;opacity:.16}92%{transform:scale(.6);opacity:.08}}` +
-  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}.hw-q{fill:#C2603F}` +
+  `.glyph{fill:#6B6862}.sweat{fill:#3D9BE0}.hw-q{fill:#C2603F}.tm{fill:#C2603F}.tm.warn{fill:#B26E12}.tm.cold{fill:#B4B1A8}` +
   `#grad-ok stop+stop{stop-color:#EC9A78}#grad-warn stop+stop{stop-color:#F2B04E}#grad-danger stop+stop{stop-color:#F2705C}}`
 
 const DEFS =
@@ -616,7 +654,7 @@ const DEFS =
 // ───────────────────────── 整条 ─────────────────────────
 
 // 收起后的细条：小 Clawd + 四个「标签 细进度条 百分比」，同样左右留白相等、间距相等；不画分隔线，靠间距分组
-function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView): string {
+function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width: number, isChill: boolean, pet?: PetView, lang: Lang = 'zh'): string {
   // 窄窗口同样逐级收：标签 + 细条 + 百分比 → 标签 + 百分比 → 短标签 + 百分比 → 只剩百分比（完整标签在悬停提示里）
   const measure = (showBar: boolean, showLabel: boolean, isShort = false) =>
     gauges.map(g => {
@@ -625,7 +663,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
       const labelW = showLabel ? textWidth(label, 11) : 0
       const valueW = textWidth(value, 11.5) * 1.05
 
-      return { g, value, label, labelW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW }
+      return { g, value, label, labelW, valueW, showBar, showLabel, w: (showLabel ? labelW + 8 : 0) + (showBar ? MINI_BAR + 8 : 0) + valueW + timerWidth(g, 10.5) }
     })
   // 间距至少 24px：Clawd 干活时会往右跑 20px，不能撞上第一项
   const fits = (list: { w: number }[]) => 2 * MINI_X + MINI_W + list.reduce((a, b) => a + b.w, 0) + list.length * 24 <= width
@@ -633,7 +671,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
   const gap = Math.max(24, (width - 2 * MINI_X - MINI_W - items.reduce((a, b) => a + b.w, 0)) / items.length)
   let x = MINI_X + MINI_W + gap
   const parts: string[] = []
-  items.forEach(({ g, value, label, labelW, showBar, showLabel, w }) => {
+  items.forEach(({ g, value, label, labelW, valueW, showBar, showLabel, w }) => {
     const t = g.tier ?? tier(g.to ?? 0)
     const barX = x + (showLabel ? labelW + 8 : 0)
     const fill = ((Math.min(100, Math.max(0, g.to ?? 0)) / 100) * MINI_BAR).toFixed(1)
@@ -646,6 +684,7 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
           ? `<rect x="${barX.toFixed(1)}" y="13.5" width="${fill}" height="3" rx="1.5" fill="url(#grad-${t})" class="mfill ${t}"/>`
           : '') +
         `<text x="${(barX + (showBar ? MINI_BAR + 8 : 0)).toFixed(1)}" y="19" class="mval">${value}</text>` +
+        (g.timerMs === undefined ? '' : cacheTimerSvg(barX + (showBar ? MINI_BAR + 8 : 0) + valueW + 6, 19, g.timerMs, lang, 10.5)) +
         `</g>`,
     )
     x += w + gap
@@ -661,7 +700,11 @@ function miniSvg(gauges: Gauge[], isWorking: boolean, isStressed: boolean, width
   )
 }
 
-export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh', pet?: PetView): string {
+// cacheTimer：离缓存过期的毫秒数和有效期（Claude 干活时不显示：那时缓存一直在用）
+export type CacheTimer = { remainMs: number; ttlMs: number }
+
+export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = false, lang: Lang = 'zh', pet?: PetView, cacheTimer?: CacheTimer): string {
+  timerLang = lang
   const { from, to } = bars
   // $.state 存取会序列化，from/to 永远是两个对象，必须比内容
   const isChanged = JSON.stringify(from) !== JSON.stringify(to)
@@ -673,6 +716,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
 
   const t = T[lang]
   const pct = (v: number | undefined) => (v === undefined ? '—' : `${Math.round(v)}%`)
+  const timer = isWorking ? undefined : cacheTimer
   const gauges: Gauge[] = [
     {
       id: 'c',
@@ -712,14 +756,17 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
       short: t.short.cache,
       sub: to?.cache ? t.cacheRead(tokensText(to.cache.read)) : t.waitingReply,
       detail: to?.cache ? t.cacheTurn(pct(to.cache.turnRate)) : t.waitingReply,
-      title: to?.cache ? t.cacheTitle(to.cache.rate, grouped(to.cache.read), grouped(to.cache.write), grouped(to.cache.fresh)) : `${t.cache}: ${t.waitingReply}`,
+      title:
+        (to?.cache ? t.cacheTitle(to.cache.rate, grouped(to.cache.read), grouped(to.cache.write), grouped(to.cache.fresh)) : `${t.cache}: ${t.waitingReply}`) +
+        (timer ? ` · ${t.cacheTimerTitle(timer.ttlMs >= 3600000 ? t.ttlHour : t.ttlFive)}` : ''),
       from: from?.cache?.rate,
       to: to?.cache?.rate,
+      timerMs: timer?.remainMs,
     },
   ]
 
   if (mini) {
-    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet)
+    return miniSvg(gauges, isWorking, isStressed, width, isChill, pet, lang)
   }
 
   // 按内容实际宽度排：左右留白相等（都是 CLAWD_X），Clawd 与四块之间的五段间距相等
@@ -728,7 +775,7 @@ export function bandSvg(bars: Bars, isWorking: boolean, width: number, mini = fa
   const gap = Math.max(MIN_GAP[layout], (width - 2 * CLAWD_X - CLAWD_W - widths.reduce((a, b) => a + b, 0)) / gauges.length)
   const xs: number[] = []
   widths.reduce((x, w) => (xs.push(x), x + w + gap), CLAWD_X + CLAWD_W + gap)
-  const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout)).join('')
+  const blocks = gauges.map((g, i) => gauge(g, i, xs[i], widths[i], isChanged, isFirst, css, layout, lang)).join('')
   // 分隔线放在两块之间那段间距的正中间
   const seps = [1, 2, 3]
     .map(i => {

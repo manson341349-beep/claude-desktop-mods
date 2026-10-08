@@ -42,6 +42,12 @@ export const T = {
     cacheTurn: (rate: string) => `本轮 ${rate}`,
     cacheTitle: (rate: number, read: string, write: string, fresh: string) =>
       `缓存命中 ${rate}%（本会话）· 读取 ${read} · 写入 ${write} · 未走缓存 ${fresh} tokens`,
+    // 缓存倒计时：答完一轮后缓存还热多久（订阅约 1 小时、API 密钥 5 分钟，每次回复重新计时）
+    cacheLeft: (m: number) => `${m}分`,
+    cacheCold: '已过期',
+    cacheTimerTitle: (ttl: string) => `缓存从上次回复起保持约 ${ttl}，每次回复重新计时；过期后下一轮要重新写入整段对话，更耗额度`,
+    ttlHour: '1 小时',
+    ttlFive: '5 分钟',
     working: 'Claude 正在干活',
     resting: 'Claude 在休息',
     whatsNew: (v: string) => `🦀 Clawd 信息栏 ${v}：`,
@@ -100,6 +106,11 @@ export const T = {
     cacheTurn: (rate: string) => `This turn ${rate}`,
     cacheTitle: (rate: number, read: string, write: string, fresh: string) =>
       `Cache hit ${rate}% (this session) · read ${read} · wrote ${write} · uncached ${fresh} tokens`,
+    cacheLeft: (m: number) => `${m}m`,
+    cacheCold: 'cold',
+    cacheTimerTitle: (ttl: string) => `The cache stays warm for about ${ttl} after each reply, and every reply restarts the clock; once it's cold, the next turn re-caches the whole conversation and costs more`,
+    ttlHour: '1 hour',
+    ttlFive: '5 minutes',
     working: 'Claude is working',
     resting: 'Claude is resting',
     whatsNew: (v: string) => `🦀 Clawd band ${v}: `,

@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, ModelUsage, Register, SessionContextUsage, SessionRateLimit } from 'claude-code'
 
 import type { Bars, CacheStat, CacheTotals, Pet, Report, Snap } from '../types'
-import { bandAlt, bandSvg, H, H_MINI, type PetView, tokensText } from './band'
+import { bandAlt, bandSvg, type CacheTimer, H, H_MINI, type PetView, tokensText } from './band'
 import { CARD_H, CARD_W, type CardData, cardAlt, cardSvg } from './card'
 import { CHANGELOG, unseenReleases } from './changelog'
 import { type Lang, type LangChoice, langFromTags, parseAppleLanguages, T, weekday } from './i18n'
@@ -24,6 +24,12 @@ const NEW_REPORT: Report = { startedAt: 0, turns: 0, toolCalls: 0, files: [], ou
 const reportAtom = atom({ plugin: 'usage-pet', key: 'report' } as const, NEW_REPORT)
 // 万圣节讨糖：最近一次答完的时间（0 = 不讨糖）。等自动展开收起后再开始讨，讨 ASK_WINDOW_MS 内有效
 const askAtom = atom({ plugin: 'usage-pet', key: 'ask' } as const, 0)
+// 缓存倒计时：主对话最近一次答完的时间（0 = 这个会话还没答过）。
+// 有效期：订阅（有 5 小时 / 每周额度读数）约 1 小时，API 密钥 5 分钟；每次请求重新计时。
+// 从「答完」算会比真正的过期时间晚一点（有效期从最后一次请求开始算），所以界面上只到分钟
+const warmAtom = atom({ plugin: 'usage-pet', key: 'warm' } as const, 0)
+const TTL_SUBSCRIPTION_MS = 60 * 60000
+const TTL_API_MS = 5 * 60000
 const ASK_DELAY_MS = EXPAND_MS + 1000
 const ASK_WINDOW_MS = 10 * 60000
 const PET_KEY = 'pet'
@@ -168,6 +174,16 @@ async function record($: EngineInterface, snap: Snap) {
     await expandForAWhile($)
   }
   $.clock.after(1300, () => void update($, barsAtom, bars => (sameSnap(bars.from, bars.to) ? bars : { from: bars.to, to: bars.to })))
+}
+
+// 缓存还热多久：没答过就不显示
+function cacheTimer(warmAt: number, bars: Bars, now: number): CacheTimer | undefined {
+  if (warmAt <= 0) {
+    return undefined
+  }
+  const ttlMs = bars.to?.session || bars.to?.weekly ? TTL_SUBSCRIPTION_MS : TTL_API_MS
+
+  return { remainMs: Math.min(ttlMs, warmAt + ttlMs - now), ttlMs }
 }
 
 // 终端读数：进度条颜色、重置时间（24 小时内写剩余多久，否则写周几几点）
@@ -375,6 +391,8 @@ export const register: Register = (on, options) => {
       }
     }
     if (e.agentId === undefined) {
+      const doneAt = await clockNow($)
+      await update($, warmAtom, () => doneAt)
       await update($, reportAtom, r => ({ ...r, turns: r.turns + 1, output: r.output + (u?.output_tokens ?? 0) }))
       const now = await clockNow($)
       if (seasonal && isHalloween(new Date(now)) && !e.isAborted) {
@@ -474,7 +492,7 @@ export const register: Register = (on, options) => {
       return (
         <Box flexDirection="row" alignItems="center" flexWrap="nowrap">
           <Svg
-            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet)}
+            source={bandSvg(bars, e.props.isWorking, width, isMini, lang, pet, cacheTimer(await read($, warmAtom), bars, now))}
             alt={bandAlt(bars.to, e.props.isWorking, lang)}
             width={width}
             height={isMini ? H_MINI : H}

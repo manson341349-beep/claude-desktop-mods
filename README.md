@@ -26,6 +26,7 @@ Mods for the **Code tab of the Claude Desktop app**.
 - **四项用量**：上下文、5 小时额度、每周额度、缓存命中率（本会话累计）。80% 变琥珀色，95% 变红；缓存命中低于 50% 才提醒
 - **自动折叠**：平时是一条 30px 的细条；每次 Claude 回答完、数据刷新时自动展开 5 秒，播完动画再收起
 - **展开时**：圆环依次扫入、数字像老虎机一样滚动、旁边飘出「+N%」
+- **缓存倒计时**：缓存命中旁边显示缓存还能热多久（订阅约 1 小时、API 密钥 5 分钟，每次回复重新计时），剩 5 分钟变色，过期显示「已过期」。缓存过期后下一轮要把整段对话重新写入缓存，更耗额度，赶在过期前回复更划算
 - **Clawd**：空闲时呼吸、眨眼、张望；Claude 干活时搬出笔记本敲代码（收起时在细条上来回小跑）；额度 ≥90% 冒汗发抖；缓存命中 ≥90% 戴上墨镜放松（点子来自 [@Joshua_WD](https://x.com/Joshua_WD)）
 - **中英双语**：默认跟随系统语言（macOS 读系统首选语言，Windows 读显示语言）；`/config` 里的 `language` 可以选 `auto` / `zh` / `en`
 - **浅色 / 深色**：跟着 Claude App 的外观设置自动切换，背景始终透明
@@ -86,6 +87,7 @@ claude plugin uninstall usage-pet@claude-desktop-mods
 - **Four meters**: context window, 5-hour limit, weekly limit, and cache hit rate (cumulative for the session). Amber at 80%, red at 95%; cache hit warns below 50%
 - **Auto-collapse**: a 30px strip most of the time; expands for 5 seconds whenever usage data refreshes, plays its animations, then collapses
 - **Expanded**: rings sweep in, digits roll like an odometer, `+N%` chips float up
+- **Cache countdown**: next to Cache hit, how long the cache stays warm (about 1 hour on a subscription, 5 minutes on an API key; every reply restarts it). Amber in the last 5 minutes, "cold" once expired. A cold cache means the next turn re-caches the whole conversation, which costs more of your limit
 - **Clawd**: breathes, blinks and looks around when idle; types on a tiny laptop while Claude works (paces back and forth when collapsed); sweats when a limit is above 90%; puts on sunglasses when the cache hit rate is 90%+ (idea by [@Joshua_WD](https://x.com/Joshua_WD))
 - **English / 中文**: follows your system language by default (macOS preferred languages, Windows display language); set `language` in `/config` to `auto`, `zh` or `en`
 - **Light / dark**: follows the Claude app appearance, always on a transparent background
